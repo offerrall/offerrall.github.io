@@ -3,7 +3,7 @@
 
 [site]
 title = "offerrall"
-tagline = "Small, versioned Python libraries. Each one does one thing and installs with a single command."
+description = "Libraries by offerrall."
 links = [
   { name = "GitHub", url = "https://github.com/offerrall" },
   { name = "PyPI", url = "https://pypi.org/user/offerrall/" },

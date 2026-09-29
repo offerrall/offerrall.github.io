@@ -11,8 +11,8 @@ python -m http.server -d _site
 
 | Path | What it is |
 |---|---|
-| `site.toml` | The content: the site's title, tagline and links, and the libraries with their groups |
-| `theme/` | The design: `base.html`, `home.html` and `page.html` ([Jinja](https://jinja.palletsprojects.com/) templates), and `static/`, copied as is to the root of the site |
+| `site.toml` | The content: the site's title, description and links, and the libraries with their groups |
+| `theme/` | The design: `base.html`, `home.html` and `page.html` ([Jinja](https://jinja.palletsprojects.com/) templates), and `static/` (styles, script, icon), copied as is to the root of the site |
 | `build.py` | Reads the libraries, checks them, turns their Markdown into HTML and fills the templates |
 
 ## How it updates

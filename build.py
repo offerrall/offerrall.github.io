@@ -120,7 +120,7 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
 md = (
     MarkdownIt("commonmark", {"html": True})
     .enable(["table", "strikethrough"])
-    .use(anchors_plugin, max_level=6)
+    .use(anchors_plugin, max_level=6, permalink=True, permalinkSymbol="#", permalinkBefore=True)
 )
 
 

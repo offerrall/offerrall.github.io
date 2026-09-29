@@ -1,25 +1,37 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
 {% block title %}{% if page.source == "README.md" %}{{ lib.name }}{% else %}{{ page.title }} · {{ lib.name }}{% endif %}{% endblock %}
 {% block description %}{{ lib.description }}{% endblock %}
 {% macro label(p) %}{% if p.source == "README.md" %}Overview{% else %}{{ p.title }}{% endif %}{% endmacro %}
 {% block body %}
 <div class="docs">
   <aside>
-    <a class="home-link" href="/">{{ site.title }}</a>
-    <div class="lib-name"><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a><span>{{ lib.version }}</span></div>
-    <ul>
-      {% for p in lib.pages %}
-      <li><a href="{{ p.url }}"{% if p == page %} aria-current="page"{% endif %}>{{ label(p) }}</a></li>
-      {% endfor %}
-    </ul>
-    <p class="links"><a href="{{ lib.repo }}">GitHub</a><a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a></p>
+    <p class="path"><a href="/">~/{{ site.title }}/libraries/</a></p>
+    <p class="lib"><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a></p>
+    <button class="copy wide pip" type="button" data-copy="pip install {{ lib.name }}" aria-label="Copy pip install {{ lib.name }}"><span class="cmd"><span class="sigil">$</span> pip install {{ lib.name }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
+    <button class="copy wide clone" type="button" data-copy="git clone {{ lib.repo }}" aria-label="Copy git clone {{ lib.repo }}" title="git clone {{ lib.repo }}"><span class="cmd"><span class="sigil">$</span> git clone {{ lib.repo | replace("https://github.com/", "") }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
+    <nav>
+      <details class="toc" open>
+        <summary><span class="label">contents</span><span class="here">{{ label(page) }}</span></summary>
+        <ol>
+          {% for p in lib.pages %}
+          <li><a href="{{ p.url }}"{% if p == page %} aria-current="page"{% endif %}>{{ label(p) }}</a></li>
+          {% endfor %}
+        </ol>
+      </details>
+      <script>{const d = document.currentScript.previousElementSibling, m = matchMedia("(max-width: 52rem)"), f = () => (d.open = !m.matches); f(); m.addEventListener("change", f)}</script>
+    </nav>
+    <p class="meta"><span>v{{ lib.version }}</span><a href="{{ lib.repo }}" class="repo">{{ icon("github") }}GitHub</a><a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a></p>
   </aside>
   <main>
     <article>{{ content | safe }}</article>
     <nav class="pager">
-      {% if prev %}<a class="prev" href="{{ prev.url }}"><span>Previous</span>{{ label(prev) }}</a>{% else %}<span></span>{% endif %}
-      {% if next %}<a class="next" href="{{ next.url }}"><span>Next</span>{{ label(next) }}</a>{% endif %}
+      {% if prev %}<a class="prev" href="{{ prev.url }}"><span><kbd>[</kbd> previous</span>{{ label(prev) }}</a>{% endif %}
+      {% if next %}<a class="next" href="{{ next.url }}"><span>next <kbd>]</kbd></span>{{ label(next) }}</a>{% endif %}
     </nav>
   </main>
 </div>
 {% endblock %}
+{% block mode %}DOCS{% endblock %}
+{% block message %}{{ lib.name }} › {{ label(page) }}{% endblock %}
+{% block keys %}<kbd>[</kbd><kbd>]</kbd> page <kbd>j</kbd><kbd>k</kbd> scroll <kbd>u</kbd> index <kbd>c</kbd> pip <kbd>g</kbd> clone <kbd>r</kbd> repo{% endblock %}

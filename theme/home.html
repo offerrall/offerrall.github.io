@@ -1,21 +1,50 @@
 {% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% set count = groups.values() | map("length") | sum %}
 {% block body %}
-<main class="home">
-  <header>
-    <h1>{{ site.title }}</h1>
-    <p>{{ site.tagline }}</p>
-    <nav>{% for link in site.links %}<a href="{{ link.url }}">{{ link.name }}</a>{% endfor %}</nav>
+<main class="index">
+  <header class="prompt">
+    <span class="path">~/{{ site.title }}/libraries</span><span class="cursor" aria-hidden="true"></span>
   </header>
-  {% for group, libs in groups.items() %}
-  <section>
-    <h2>{{ group }}</h2>
-    <ul class="libs">
-      {% for lib in libs %}
-      <li><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a><p>{{ lib.description }}</p></li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endfor %}
-  <footer>pip install &lt;name&gt;</footer>
+
+  <label class="filter">
+    <span aria-hidden="true">&gt;</span>
+    <input id="filter" type="text" placeholder="filter" autocomplete="off" spellcheck="false" aria-label="Filter libraries">
+    <kbd>/</kbd>
+  </label>
+
+  <nav class="tabs" role="tablist" aria-label="Categories">
+    {% for group, libs in groups.items() %}
+    <button class="tab" type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ group }}<span class="count">{{ "%02d" | format(libs | length) }}</span></button>
+    {% endfor %}
+  </nav>
+
+  <div class="panels">
+    {% for group, libs in groups.items() %}
+    <section class="group{{ ' active' if loop.first }}" data-name="{{ group }}">
+      <h2><span>{{ group }}</span><i></i><span class="count">{{ "%02d" | format(libs | length) }}</span></h2>
+      <ul>
+        {% for lib in libs %}
+        <li class="row" data-search="{{ (lib.name ~ ' ' ~ lib.description ~ ' ' ~ group) | lower }}">
+          <a class="name" href="{{ lib.pages[0].url }}">{{ lib.name }}</a>
+          <span class="desc" title="{{ lib.description }}">{{ lib.description }}</span>
+          <span class="ver">{{ lib.version }}</span>
+          <span class="actions">
+            <button class="copy pip" type="button" data-copy="pip install {{ lib.name }}" data-tip="copy: pip install {{ lib.name }}" aria-label="Copy pip install {{ lib.name }}"><span class="idle">{{ icon("pip") }}</span><span class="done">{{ icon("check") }}</span></button>
+            <button class="copy clone" type="button" data-copy="git clone {{ lib.repo }}" data-tip="copy: git clone {{ lib.repo }}" aria-label="Copy git clone {{ lib.repo }}"><span class="idle">{{ icon("clone") }}</span><span class="done">{{ icon("check") }}</span></button>
+            <a class="repo" href="{{ lib.repo }}" data-tip="open: {{ lib.repo }}" aria-label="{{ lib.name }} on GitHub">{{ icon("github") }}</a>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+    <p class="empty" hidden>no library matches</p>
+  </div>
+
+  <nav class="links">{% for link in site.links %}<a href="{{ link.url }}">{{ link.name }}</a>{% endfor %}</nav>
 </main>
 {% endblock %}
+{% block mode %}INDEX{% endblock %}
+{% block message %}{{ count }} libraries{% endblock %}
+{% block keys %}<kbd>h</kbd><kbd>l</kbd> category <kbd>j</kbd><kbd>k</kbd> move <kbd>↵</kbd> open <kbd>c</kbd> pip <kbd>g</kbd> clone <kbd>r</kbd> repo <kbd>/</kbd> filter{% endblock %}
