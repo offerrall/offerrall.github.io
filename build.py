@@ -1,16 +1,16 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["markdown-it-py", "mdit-py-plugins"]
+# dependencies = ["markdown-it-py", "mdit-py-plugins", "jinja2"]
 # ///
-"""Build the site into _site/ from each library's README.md, docs/ and pyproject.toml.
+"""Build the site into _site/.
 
-Each library is read at its highest release tag (v1.2.0).
+The content comes from site.toml and from each library's repository at its highest release
+tag: pyproject.toml, README.md and docs/. The design is theme/: its templates and static/.
 
 Run: uv run build.py            # the latest releases, cloned into .cache/
      uv run build.py --local    # the working trees next to this repo (../<repo>), to preview
 """
 
-import html
 import posixpath
 import re
 import shutil
@@ -20,19 +20,14 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from markdown_it import MarkdownIt
 from mdit_py_plugins.anchors import anchors_plugin
 
 ROOT = Path(__file__).parent
+THEME = ROOT / "theme"
 OUT = ROOT / "_site"
 CACHE = ROOT / ".cache"
-TAGLINE = "Small, versioned Python libraries. Each one does one thing and installs with a single command."
-
-md = (
-    MarkdownIt("commonmark", {"html": True})
-    .enable(["table", "strikethrough"])
-    .use(anchors_plugin, max_level=6)
-)
 
 DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/[\w-]+\.md)\)")
 HTML_URL = re.compile(r'\b(src|href)="([^"]+)"')
@@ -41,7 +36,7 @@ EXTERNAL = re.compile(r"^([a-z][a-z0-9+.-]*:|//)")
 
 @dataclass(frozen=True)
 class Page:
-    source: str  # path inside the repository, e.g. "docs/window.md"
+    source: str  # path inside the repository, e.g. "docs/usage.md"
     title: str
     url: str
 
@@ -63,6 +58,8 @@ def fail(errors: list[str]) -> None:
         print("\n".join(f"error: {e}" for e in errors), file=sys.stderr)
         sys.exit(1)
 
+
+# Reading a library
 
 def checkout(repo: str, local: bool) -> tuple[Path, str]:
     """The folder to read a library from, and the git ref it holds."""
@@ -94,6 +91,8 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     version = project.get("version") or re.search(
         r'__version__ = "([^"]+)"', (root / "src" / name / "__init__.py").read_text()
     ).group(1)
+    if not local and ref != f"v{version}":
+        fail([f"{repo}: tag {ref} holds version {version}"])
 
     readme = (root / "README.md").read_text()
     section = re.search(r"^## Documentation\n(.*?)(?=^## |\Z)", readme, re.M | re.S)
@@ -112,10 +111,17 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
 
     pages = [Page("README.md", name, f"/{name}/")]
     pages += [Page(m["path"], m["title"], f"/{name}/{Path(m['path']).stem}/") for m in listed]
-    if not local and ref != f"v{version}":
-        fail([f"{repo}: tag {ref} holds version {version}"])
     return Lib(name, group, project["description"], version,
                f"https://github.com/{repo}", ref, root, tuple(pages))
+
+
+# Markdown to HTML
+
+md = (
+    MarkdownIt("commonmark", {"html": True})
+    .enable(["table", "strikethrough"])
+    .use(anchors_plugin, max_level=6)
+)
 
 
 def resolve(target: str, source: str, lib: Lib, ids: dict[str, set[str]], errors: list[str]) -> str:
@@ -140,8 +146,13 @@ def resolve(target: str, source: str, lib: Lib, ids: dict[str, set[str]], errors
     return f"{lib.repo}/{kind}/{lib.ref}/{rel}{frag}"
 
 
-def render(tokens, source: str, lib: Lib, ids: dict[str, set[str]], errors: list[str]) -> str:
-    def fix(token):
+def render_docs(lib: Lib, errors: list[str]) -> dict[str, str]:
+    """The HTML of each page of a library, by source path, with its links resolved."""
+    parsed = {p.source: md.parse((lib.root / p.source).read_text()) for p in lib.pages}
+    ids = {source: {t.attrGet("id") for t in tokens if t.type == "heading_open"}
+           for source, tokens in parsed.items()}
+
+    def fix(token, source):
         for attr in ("href", "src"):
             if token.attrGet(attr):
                 token.attrSet(attr, resolve(token.attrGet(attr), source, lib, ids, errors))
@@ -149,106 +160,46 @@ def render(tokens, source: str, lib: Lib, ids: dict[str, set[str]], errors: list
             token.content = HTML_URL.sub(
                 lambda m: f'{m[1]}="{resolve(m[2], source, lib, ids, errors)}"', token.content)
 
-    for token in tokens:
-        fix(token)
-        for child in token.children or ():
-            fix(child)
-    return md.renderer.render(tokens, md.options, {})
+    for source, tokens in parsed.items():
+        for token in tokens:
+            fix(token, source)
+            for child in token.children or ():
+                fix(child, source)
+    return {source: md.renderer.render(tokens, md.options, {}) for source, tokens in parsed.items()}
 
 
-def layout(title: str, body: str, description: str = "") -> str:
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(title)}</title>
-<meta name="description" content="{html.escape(description)}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css">
-</head>
-<body>
-{body}
-</body>
-</html>
-"""
+# Writing the site
 
-
-def home(libs: list[Lib]) -> str:
-    groups: dict[str, list[Lib]] = {}
-    for lib in libs:
-        groups.setdefault(lib.group, []).append(lib)
-    sections = "".join(
-        f"""
-  <section>
-    <h2>{html.escape(group)}</h2>
-    <ul class="libs">{"".join(
-        f'<li><a href="/{lib.name}/">{lib.name}</a><p>{html.escape(lib.description)}</p></li>'
-        for lib in members)}</ul>
-  </section>"""
-        for group, members in groups.items())
-    return layout("offerrall", f"""<main class="home">
-  <header>
-    <h1>offerrall</h1>
-    <p>{TAGLINE}</p>
-    <nav><a href="https://github.com/offerrall">GitHub</a><a href="https://pypi.org/user/offerrall/">PyPI</a></nav>
-  </header>
-{sections}
-
-  <footer>pip install &lt;name&gt;</footer>
-</main>""", TAGLINE)
-
-
-def doc_page(lib: Lib, index: int, content: str) -> str:
-    page = lib.pages[index]
-    nav = "".join(
-        f'<li><a href="{p.url}"{" aria-current=\"page\"" if i == index else ""}>'
-        f'{"Overview" if i == 0 else html.escape(p.title)}</a></li>'
-        for i, p in enumerate(lib.pages))
-    prev = lib.pages[index - 1] if index > 0 else None
-    next_ = lib.pages[index + 1] if index + 1 < len(lib.pages) else None
-    pager = "".join((
-        f'<a class="prev" href="{prev.url}"><span>Previous</span>{html.escape("Overview" if prev.source == "README.md" else prev.title)}</a>' if prev else "<span></span>",
-        f'<a class="next" href="{next_.url}"><span>Next</span>{html.escape(next_.title)}</a>' if next_ else "",
-    ))
-    title = lib.name if index == 0 else f"{page.title} · {lib.name}"
-    return layout(title, f"""<div class="docs">
-  <aside>
-    <a class="home-link" href="/">offerrall</a>
-    <div class="lib-name"><a href="{lib.pages[0].url}">{lib.name}</a><span>{lib.version}</span></div>
-    <ul>{nav}</ul>
-    <p class="links"><a href="{lib.repo}">GitHub</a><a href="https://pypi.org/project/{lib.name}/">PyPI</a></p>
-  </aside>
-  <main>
-    <article>{content}</article>
-    <nav class="pager">{pager}</nav>
-  </main>
-</div>""", lib.description)
+def write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
 
 
 def main() -> None:
-    config = tomllib.loads((ROOT / "libs.toml").read_text())
+    config = tomllib.loads((ROOT / "site.toml").read_text())
     local = "--local" in sys.argv[1:]
     libs = [load_lib(entry["repo"], entry["group"], local) for entry in config["lib"]]
+    groups: dict[str, list[Lib]] = {}
+    for lib in libs:
+        groups.setdefault(lib.group, []).append(lib)
+
+    theme = Environment(loader=FileSystemLoader(THEME), autoescape=True, undefined=StrictUndefined)
+    site = config["site"]
 
     if OUT.exists():
         shutil.rmtree(OUT)
-    OUT.mkdir()
-    shutil.copy(ROOT / "style.css", OUT / "style.css")
+    shutil.copytree(THEME / "static", OUT)
     (OUT / ".nojekyll").touch()
-    (OUT / "index.html").write_text(home(libs))
+    write(OUT / "index.html", theme.get_template("home.html").render(site=site, groups=groups))
 
     errors: list[str] = []
     for lib in libs:
-        parsed = {p.source: md.parse((lib.root / p.source).read_text()) for p in lib.pages}
-        ids = {src: {t.attrGet("id") for t in tokens if t.type == "heading_open"}
-               for src, tokens in parsed.items()}
+        html = render_docs(lib, errors)
         for i, page in enumerate(lib.pages):
-            out = OUT / page.url.strip("/") / "index.html"
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(doc_page(lib, i, render(parsed[page.source], page.source, lib, ids, errors)))
+            write(OUT / page.url.strip("/") / "index.html", theme.get_template("page.html").render(
+                site=site, lib=lib, page=page, content=html[page.source],
+                prev=lib.pages[i - 1] if i > 0 else None,
+                next=lib.pages[i + 1] if i + 1 < len(lib.pages) else None))
         images = lib.root / "docs" / "images"
         if images.is_dir():
             shutil.copytree(images, OUT / lib.name / "images")

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{% if page.source == "README.md" %}{{ lib.name }}{% else %}{{ page.title }} · {{ lib.name }}{% endif %}{% endblock %}
+{% block description %}{{ lib.description }}{% endblock %}
+{% macro label(p) %}{% if p.source == "README.md" %}Overview{% else %}{{ p.title }}{% endif %}{% endmacro %}
+{% block body %}
+<div class="docs">
+  <aside>
+    <a class="home-link" href="/">{{ site.title }}</a>
+    <div class="lib-name"><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a><span>{{ lib.version }}</span></div>
+    <ul>
+      {% for p in lib.pages %}
+      <li><a href="{{ p.url }}"{% if p == page %} aria-current="page"{% endif %}>{{ label(p) }}</a></li>
+      {% endfor %}
+    </ul>
+    <p class="links"><a href="{{ lib.repo }}">GitHub</a><a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a></p>
+  </aside>
+  <main>
+    <article>{{ content | safe }}</article>
+    <nav class="pager">
+      {% if prev %}<a class="prev" href="{{ prev.url }}"><span>Previous</span>{{ label(prev) }}</a>{% else %}<span></span>{% endif %}
+      {% if next %}<a class="next" href="{{ next.url }}"><span>Next</span>{{ label(next) }}</a>{% endif %}
+    </nav>
+  </main>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="home">
+  <header>
+    <h1>{{ site.title }}</h1>
+    <p>{{ site.tagline }}</p>
+    <nav>{% for link in site.links %}<a href="{{ link.url }}">{{ link.name }}</a>{% endfor %}</nav>
+  </header>
+  {% for group, libs in groups.items() %}
+  <section>
+    <h2>{{ group }}</h2>
+    <ul class="libs">
+      {% for lib in libs %}
+      <li><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a><p>{{ lib.description }}</p></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+  <footer>pip install &lt;name&gt;</footer>
+</main>
+{% endblock %}

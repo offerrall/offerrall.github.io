@@ -1,0 +1,15 @@
+# The content of the site. Everything about a library (description, version, docs)
+# is read from its repository at its highest release tag.
+
+[site]
+title = "offerrall"
+tagline = "Small, versioned Python libraries. Each one does one thing and installs with a single command."
+links = [
+  { name = "GitHub", url = "https://github.com/offerrall" },
+  { name = "PyPI", url = "https://pypi.org/user/offerrall/" },
+]
+
+# The libraries, in order. Libraries with the same group are listed together.
+[[lib]]
+repo = "offerrall/pycodecad"
+group = "CNC, laser & CAD"
