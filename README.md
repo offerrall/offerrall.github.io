@@ -63,13 +63,14 @@ them; the metadata has its own rules for each.
   `## Documentation`, since CMake has no one place that declares them. One line per
   dependency: its name, its version in pip's notation (`==`, `>=`, `<`, `,` between clauses),
   and marks in parentheses: `bundled` when CMake downloads and builds it, `optional: <option>`
-  when only that CMake option needs it. Without marks it comes from the system. `None.` when
-  there are none. Another of these libraries is pinned exactly, as in Python.
+  when only that CMake option needs it. Without marks it comes from the system. A short
+  description may follow a colon. `None.` when there are none. Another of these libraries is
+  pinned exactly, as in Python.
 
   ```markdown
   ## Dependencies
 
-  - zstd `==1.5.6` (bundled)
+  - zstd `==1.5.6` (bundled): compressed project files
   - lcms2 `>=2.16`
   - harfbuzz `>=2.6` (optional: IMAGEKIT_BUILD_TEXT)
   ```

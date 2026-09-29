@@ -366,15 +366,16 @@ def cmake_problems(repo: str, root: Path, project: dict, local: bool) -> list[st
 
 
 DEPENDENCIES = re.compile(r"^## Dependencies\n(.*?)(?=^## |\Z)", re.M | re.S)
-DEPENDENCY = re.compile(r"- (?P<name>[A-Za-z0-9][A-Za-z0-9._+-]*)(?: `(?P<spec>[^`]+)`)?(?: \((?P<marks>[^)]+)\))?")
+DEPENDENCY = re.compile(r"- (?P<name>[A-Za-z0-9][A-Za-z0-9._+-]*)(?: `(?P<spec>[^`]+)`)?(?: \((?P<marks>[^)]+)\))?"
+                        r"(?:: (?P<about>\S.*))?")
 VERSION_CLAUSE = re.compile(r"(==|!=|>=|<=|~=|>|<)\s*\d+(\.\d+)*")
 
 
 def readme_dependencies(name: str, readme: str) -> tuple[list[dict], list[str]]:
     """What a C or C++ library needs, as its README's '## Dependencies' declares it: one line
     per dependency, `- <name> `<version>` (<marks>)`, the version in pip's notation and the marks
-    `bundled` (CMake downloads and builds it) and `optional: <CMake option>`; 'None.' when
-    there are none."""
+    `bundled` (CMake downloads and builds it) and `optional: <CMake option>`, then an optional
+    `: <what it is used for>`; 'None.' when there are none."""
     section = DEPENDENCIES.search(readme)
     if not section:
         return [], [f"{name}: README.md has no '## Dependencies' section after '## Documentation'; a C or C++ "
@@ -392,12 +393,12 @@ def readme_dependencies(name: str, readme: str) -> tuple[list[dict], list[str]]:
                 or any(m != "bundled" and not m.startswith("optional:") for m in marks)
                 or len(optional) > 1 or "" in optional or len(marks) != len(set(marks))):
             problems.append(f"{name}: README '## Dependencies' line {line!r} is not "
-                            f"'- <name> `<version>` (bundled, optional: <CMake option>)'")
+                            f"'- <name> `<version>` (bundled, optional: <CMake option>): <what for>'")
             continue
         if any(d["name"] == normalized(match["name"]) for d in found):
             problems.append(f"{name}: README '## Dependencies' lists {match['name']} twice")
         found.append({"name": normalized(match["name"]), "spec": spec, "bundled": "bundled" in marks,
-                      "optional": optional[0] if optional else None})
+                      "optional": optional[0] if optional else None, "about": match["about"] or ""})
     return found, problems
 
 
@@ -704,7 +705,8 @@ def facts(lib: Lib, libs: list[Lib]) -> dict:
             "license": recognized_license(file.read_text()) if file else None,
             "dependencies": [{"text": f"{d['name']} {d['spec']}".strip(), "url": pages.get(d["name"]),
                               "note": ", ".join(filter(None, ["bundled" if d["bundled"] else "",
-                                                              d["optional"] and f"optional: {d['optional']}"]))}
+                                                              d["optional"] and f"optional: {d['optional']}",
+                                                              d["about"]]))}
                              for d in project["dependencies"]],
             "extras": [], "commands": [],
         }
