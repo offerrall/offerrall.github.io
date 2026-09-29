@@ -11,12 +11,14 @@ links = [
 ]
 
 # The libraries, in order. Libraries with the same group are listed together.
+# name_predates_convention marks a library named before the naming rule; PyPI names cannot change.
 [[lib]]
 repo = "offerrall/pycodecad"
 group = "CNC, laser & CAD"
 
 [[lib]]
 repo = "offerrall/PyGrbl_Streamer"
+name_predates_convention = true
 group = "CNC, laser & CAD"
 
 [[lib]]
@@ -25,6 +27,7 @@ group = "Deployment"
 
 [[lib]]
 repo = "offerrall/pygrbl_build"
+name_predates_convention = true
 group = "CNC, laser & CAD"
 
 [[lib]]
@@ -41,4 +44,5 @@ group = "Types & forms"
 
 [[lib]]
 repo = "offerrall/FuncToWeb"
+name_predates_convention = true
 group = "Web"

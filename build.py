@@ -195,6 +195,11 @@ def release_problems(repo: str, root: Path, project: dict, version: str, local: 
     elif declared == "MIT" and "Permission is hereby granted, free of charge" not in license_files[0].read_text():
         problems.append(f"{name}: pyproject.toml declares MIT and {license_files[0].name} is not the MIT text")
 
+    for stray in sorted(root.rglob("README*")):
+        where = stray.relative_to(root)
+        if where != Path("README.md") and not any(part.startswith(".") for part in where.parts):
+            problems.append(f"{name}: {where} is documentation outside README.md and docs/")
+
     floor = re.search(r">=\s*3\.(\d+)", project.get("requires-python", ""))
     for classifier in project.get("classifiers", []):
         supported = re.fullmatch(r"Programming Language :: Python :: 3\.(\d+)", classifier)
@@ -204,7 +209,21 @@ def release_problems(repo: str, root: Path, project: dict, version: str, local: 
     return problems
 
 
-def load_lib(repo: str, group: str, local: bool) -> Lib:
+def name_problems(repo: str, root: Path, project: dict, predates: bool) -> list[str]:
+    """One name everywhere: lowercase letters and digits only, the same on PyPI, for the
+    repository and for the package you import. site.toml marks the libraries named before."""
+    name, repo_name = project["name"], repo.split("/")[1]
+    follows = bool(re.fullmatch(r"[a-z0-9]+", name)) and repo_name == name and any(
+        (base / name / "__init__.py").exists() for base in (root / "src", root))
+    if predates and follows:
+        return [f"{name}: follows the naming convention; remove name_predates_convention from site.toml"]
+    if not predates and not follows:
+        return [f"{name}: the name must be lowercase letters and digits only, and the same for the "
+                f"repository ({repo_name}) and for the imported package"]
+    return []
+
+
+def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     root, ref = checkout(repo, local)
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     project = pyproject["project"]
@@ -232,6 +251,7 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     if "docs/index.md" in on_disk:
         errors.append(f"{name}: docs/index.md would have the markdown URL of the README, rename it")
     errors += release_problems(repo, root, project, version, local)
+    errors += name_problems(repo, root, project, predates)
     fail(errors)
 
     pages = [Page("README.md", name, f"/{name}/", "")]
@@ -452,7 +472,8 @@ def write(path: Path, text: str) -> None:
 def main() -> None:
     config = tomllib.loads((ROOT / "site.toml").read_text())
     local = "--local" in sys.argv[1:]
-    libs = [load_lib(entry["repo"], entry["group"], local) for entry in config["lib"]]
+    libs = [load_lib(entry["repo"], entry["group"], local, entry.get("name_predates_convention", False))
+            for entry in config["lib"]]
     # The home page: the ten with the most stars first, then each group, by stars too.
     by_stars = sorted(libs, key=lambda lib: (-lib.stars, lib.name))
     sections = [{"name": "Top", "libs": by_stars[:10]}]
