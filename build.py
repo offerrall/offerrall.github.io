@@ -248,6 +248,14 @@ def dependency_links(libs: list[Lib]) -> list[Link]:
             if name in by_name and by_name[name] is not lib]
 
 
+def unpinned(links: list[Link]) -> list[str]:
+    """A library that needs another of these must pin it exactly, so a new release of one
+    can never change what an installed release of the other does."""
+    return [f"{link.user.name}: needs {link.used.name} {link.spec or '(any version)'}, "
+            f"pin it exactly, e.g. {link.used.name}=={link.used.version}"
+            for link in links if not re.fullmatch(r"==\s*\d+(\.\d+)*", link.spec)]
+
+
 NODE_W, NODE_H, COLUMN_W, ROW_H, PAD = 190, 46, 360, 72, 24
 
 
@@ -316,6 +324,7 @@ def main() -> None:
     for group in dict.fromkeys(lib.group for lib in libs):
         sections.append({"name": group, "libs": [lib for lib in by_stars if lib.group == group]})
     links = dependency_links(libs)
+    fail(unpinned(links))
 
     theme = Environment(loader=FileSystemLoader(THEME), autoescape=True, undefined=StrictUndefined)
     site = config["site"]

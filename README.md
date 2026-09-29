@@ -28,6 +28,8 @@ ntfy topic `offerepos`.
   `version`, or a file named by `[tool.hatch.version] path` or `[tool.setuptools.dynamic]
   version = {attr = ...}` holding `__version__ = "X.Y.Z"`.
 - **Release tags `v<major>.<minor>.<patch>`**, each holding that version.
+- **Dependencies on other libraries of the site pinned exactly**, `name==X.Y.Z`: a new
+  release of one can never change what an installed release of another does.
 - **`README.md`** with a `## Documentation` section that lists every `.md` under `docs/`,
   subfolders included, one per line, in reading order. That list is the library's menu on the site:
 
@@ -41,6 +43,7 @@ ntfy topic `offerepos`.
   work on GitHub (`usage.md#options`).
 
 The build fails when a library breaks any of these: a missing section, a doc not listed or listed
-but missing, a tag that holds another version, or a link to a file or heading that does not exist.
+but missing, a tag that holds another version, a dependency on another library of the site that is
+not pinned exactly, or a link to a file or heading that does not exist.
 
 To add a library, add it to `site.toml`.
