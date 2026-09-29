@@ -241,8 +241,8 @@ kbd {
 .row .desc { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); }
 .row .ver { color: var(--faint); font-size: 12px; text-align: right; }
 .row .ver { display: flex; gap: .9rem; justify-content: flex-end; white-space: nowrap; }
-.row .stars, .row .when { color: var(--muted); }
-.row.sel :is(.stars, .when) { color: inherit; }
+.row .stars { color: var(--muted); }
+.row.sel .stars { color: inherit; }
 .row .actions { display: flex; gap: .4rem; justify-self: end; }
 .row :is(.copy, .repo) {
   display: grid;

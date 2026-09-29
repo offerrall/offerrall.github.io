@@ -21,7 +21,6 @@ import sys
 import tomllib
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -57,7 +56,6 @@ class Lib:
     version: str
     repo: str  # https://github.com/owner/name
     ref: str  # the tag read, or "main" for a working tree
-    released: str  # when the commit read was made, ISO 8601
     stars: int
     root: Path
     pages: tuple[Page, ...]  # the README first, then the docs in README order
@@ -152,10 +150,8 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     pages += [Page(m["path"], m["title"].replace("`", ""),
                    f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/")
               for m in listed]
-    released = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%cI"],
-                              capture_output=True, text=True, check=True).stdout.strip()
     return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
-               ref, released, github_stars(repo), root, tuple(pages))
+               ref, github_stars(repo), root, tuple(pages))
 
 
 # Markdown to HTML
@@ -231,13 +227,11 @@ def main() -> None:
     config = tomllib.loads((ROOT / "site.toml").read_text())
     local = "--local" in sys.argv[1:]
     libs = [load_lib(entry["repo"], entry["group"], local) for entry in config["lib"]]
-    # The home page: the latest releases first, then each group by stars.
-    sections = [{"name": "Recent", "recent": True,
-                 "libs": sorted(libs, key=lambda lib: datetime.fromisoformat(lib.released), reverse=True)[:5]}]
+    # The home page: the ten with the most stars first, then each group, by stars too.
+    by_stars = sorted(libs, key=lambda lib: (-lib.stars, lib.name))
+    sections = [{"name": "Top", "libs": by_stars[:10]}]
     for group in dict.fromkeys(lib.group for lib in libs):
-        members = [lib for lib in libs if lib.group == group]
-        sections.append({"name": group, "recent": False,
-                         "libs": sorted(members, key=lambda lib: (-lib.stars, lib.name))})
+        sections.append({"name": group, "libs": [lib for lib in by_stars if lib.group == group]})
 
     theme = Environment(loader=FileSystemLoader(THEME), autoescape=True, undefined=StrictUndefined)
     site = config["site"]
