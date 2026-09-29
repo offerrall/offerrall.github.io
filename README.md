@@ -35,26 +35,36 @@ A library listed in `site.toml` follows all of these.
 
 ### Documentation
 
-- **All the documentation lives in `README.md` and `docs/`**: no other README anywhere in the
-  repository.
-- **`README.md` is titled with the library's name**, without a version (the name of the repository
-  is accepted too).
-- **The README has a `## Documentation` section listing every page under `docs/`**, subfolders
-  included, one per line, in reading order, optionally followed by a one-line description. That
-  list is the library's menu on the site:
+- **`README.md` is a short entrance**: the library's name as title, without a version (the name of
+  the repository is accepted too), a presentation of at most 40 lines with at most one block of
+  code, the line `The full documentation is at https://offerrall.github.io/<name>/.`, and a
+  `## Documentation` section, its only section.
+- **The `## Documentation` list is the site's menu**: every page under `docs/`, subfolders
+  included, one per line, in reading order, `docs/overview.md` first, optionally followed by a
+  one-line description. It links to nothing outside `docs/` (the site adds the changelog). A
+  `### Maintaining` subheading may group the pages for maintainers.
 
   ```markdown
   ## Documentation
 
-  - [Getting started](docs/getting-started.md): install and a first example.
-  - [Design notes](docs/design/architecture.md): why the layers are split as they are.
+  - [Overview](docs/overview.md): what it is and how it works.
+  - [Getting started](docs/getting-started.md): a first example.
   ```
 
-- **Every page under `docs/` is in that list**, every entry of the list exists, and no page is
-  named `docs/index.md`.
+- **`docs/overview.md` is the introduction**: on the site, the Overview page is the README's
+  presentation followed by it.
+- **Every page under `docs/` is in the list**, every entry of the list exists, and no page is
+  named `docs/index.md`. All the documentation lives in `README.md` and `docs/`: no other README
+  anywhere in the repository.
+- **A page starts with its one title** (`# Title`), and its entry in the list uses that same title.
+- **Every block of code names its language** (` ```python `, ` ```bash `, ` ```text `...).
+- **No badges** (`img.shields.io`): the site shows version, Python and license itself.
 - **Every relative link works**: to a file of the repository, and to a heading (`#anchor`) of a
-  page. Links are written as they work on GitHub. The site publishes the images in
-  `docs/images/`; any other file is linked on GitHub.
+  page. Links are written as they work on GitHub, and no page links to `README.md`. The site
+  publishes the images in `docs/images/`; any other file is linked on GitHub.
+- **Another of these libraries is linked by its page on the site**, not by its GitHub repository.
+- **`CHANGELOG.md` headings are `## X.Y.Z - YYYY-MM-DD`**, newest first, with real dates.
+- **`[project.urls]` has `Documentation = "https://offerrall.github.io/<name>/"`.**
 
 ## What the site shows
 
@@ -66,7 +76,8 @@ declares those two. Names appear in the form PyPI displays: lowercase, separator
 hyphen (`pygrbl_streamer` is shown, installed and linked as `pygrbl-streamer`).
 
 - **Home**: the ten libraries with the most GitHub stars, then every library by group.
-- **A library's page**: what its `pyproject.toml` declares, then its README and its docs.
+- **A library's page**: what its `pyproject.toml` declares, then its Overview (the README's
+  presentation and `docs/overview.md`), its docs, and its changelog.
 - **`/dependencies/`**: the exact pins between the libraries, and the packages from PyPI each one
   needs to run.
 - **`/doc/` and `/llms.txt`**: the same content as markdown, for AI agents.

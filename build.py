@@ -11,6 +11,7 @@ Run: uv run build.py            # the latest releases, cloned into .cache/
      uv run build.py --local    # the working trees next to this repo (../<repo>), to preview
 """
 
+import datetime
 import json
 import os
 import posixpath
@@ -223,6 +224,98 @@ def name_problems(repo: str, root: Path, project: dict, predates: bool) -> list[
     return []
 
 
+SITE_URL = "https://offerrall.github.io"
+OVERVIEW = "docs/overview.md"
+FENCE = re.compile(r"^\s*(```+|~~~+)(.*)$")
+CHANGELOG_HEADING = re.compile(r"(\d+)\.(\d+)\.(\d+) - (\d{4}-\d{2}-\d{2})")
+
+
+def site_line(name: str) -> str:
+    return f"The full documentation is at {SITE_URL}/{name}/."
+
+
+def fences_without_language(text: str) -> int:
+    count, inside = 0, False
+    for line in text.splitlines():
+        if found := FENCE.match(line):
+            if not inside and not found[2].strip():
+                count += 1
+            inside = not inside
+    return count
+
+
+def docs_problems(name: str, root: Path, project: dict, readme: str, listed: list) -> list[str]:
+    """The shape of the documentation: a short README that opens the site, docs/overview.md
+    first, each page's menu label its own title, every block of code tagged with a language."""
+    problems = []
+    entrance, _, documentation = readme.partition("\n## Documentation\n")
+    if not listed or listed[0]["path"] != OVERVIEW:
+        problems.append(f"{name}: {OVERVIEW} must exist and come first in '## Documentation'")
+    if any(h.strip() for h in re.findall(r"^## (.*)$", entrance + documentation, re.M)):
+        problems.append(f"{name}: README.md may have no section besides '## Documentation'")
+    if len(entrance.splitlines()) > 40:
+        problems.append(f"{name}: README.md has {len(entrance.splitlines())} lines before '## Documentation', at most 40")
+    if sum(1 for line in entrance.splitlines() if FENCE.match(line)) > 2:
+        problems.append(f"{name}: README.md has more than one block of code before '## Documentation'")
+    if site_line(name) not in entrance.splitlines():
+        problems.append(f"{name}: README.md must have the line: {site_line(name)}")
+    for target in re.findall(r"\]\(([^)\s]+)", documentation.split("\n## ")[0]):
+        if not target.startswith("docs/"):
+            problems.append(f"{name}: '## Documentation' links {target}; it lists docs/ only (the site adds the changelog)")
+
+    pages = {"README.md": readme} | {p.relative_to(root).as_posix(): p.read_text() for p in (root / "docs").rglob("*.md")}
+    for path, text in pages.items():
+        if "img.shields.io" in text:
+            problems.append(f"{name}: {path} has a badge; the site shows version, Python and license itself")
+        if (count := fences_without_language(text)):
+            problems.append(f"{name}: {path} has {count} block(s) of code without a language")
+        if path != "README.md" and re.search(r"\]\([^)\s]*README\.md", text):
+            problems.append(f"{name}: {path} links to README.md; link to docs/overview.md or another page")
+    for m in listed:
+        text = pages.get(m["path"], "")
+        titles = [t for t in md.parse(text) if t.type == "heading_open" and t.tag == "h1"]
+        first = re.match(r"# (.+)", text)
+        if len(titles) != 1 or not first:
+            problems.append(f"{name}: {m['path']} must start with its one '# Title'")
+        elif first[1].strip() != m["title"]:
+            problems.append(f"{name}: '{m['title']}' in the README list is titled '{first[1].strip()}' in {m['path']}")
+
+    documentation_url = project.get("urls", {}).get("Documentation", "").rstrip("/")
+    if documentation_url != f"{SITE_URL}/{name}":
+        problems.append(f"{name}: [project.urls] Documentation must be {SITE_URL}/{name}/")
+
+    changelog = (root / "CHANGELOG.md").read_text() if (root / "CHANGELOG.md").exists() else ""
+    previous = None
+    for heading in re.findall(r"^## (.*)$", changelog, re.M):
+        found = CHANGELOG_HEADING.fullmatch(heading.strip())
+        try:
+            day = found and datetime.date.fromisoformat(found[4])
+        except ValueError:
+            day = None
+        if not day:
+            problems.append(f"{name}: CHANGELOG.md heading '## {heading}' is not '## X.Y.Z - YYYY-MM-DD'")
+            continue
+        current = (tuple(map(int, found.groups()[:3])), day)
+        if previous and not (current[0] < previous[0] and current[1] <= previous[1]):
+            problems.append(f"{name}: CHANGELOG.md '## {heading}' is out of order")
+        previous = current
+    return problems
+
+
+def sibling_problems(libs: list["Lib"]) -> list[str]:
+    """A library names another of the site by its page on the site, not by its GitHub repository."""
+    repos = "|".join(re.escape(lib.repo.rsplit("/", 1)[1]) for lib in libs)
+    root_link = re.compile(rf"https?://github\.com/offerrall/({repos})/?(?=[)\s\"'>#]|$)", re.I | re.M)
+    problems = []
+    for lib in libs:
+        for path in ["README.md", *(p.relative_to(lib.root).as_posix() for p in (lib.root / "docs").rglob("*.md"))]:
+            for found in root_link.finditer((lib.root / path).read_text()):
+                other = next(l for l in libs if l.repo.lower().endswith("/" + found[1].lower()))
+                if other is not lib:
+                    problems.append(f"{lib.name}: {path} links {found[0]}; use {SITE_URL}/{other.name}/")
+    return problems
+
+
 def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     root, ref = checkout(repo, local)
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
@@ -254,6 +347,7 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
         errors.append(f"{name}: docs/index.md would have the markdown URL of the README, rename it")
     errors += release_problems(repo, root, project, version, local)
     errors += name_problems(repo, root, project, predates)
+    errors += docs_problems(name, root, project, readme, listed)
     fail(errors)
 
     pages = [Page("README.md", name, f"/{name}/", "")]
@@ -261,7 +355,9 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     pages += [Page(m["path"], m["title"].replace("`", ""),
                    f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/",
                    (m["about"] or "").strip().removesuffix("."))
-              for m in listed]
+              for m in listed if m["path"] != OVERVIEW]
+    if (root / "CHANGELOG.md").exists():
+        pages.append(Page("CHANGELOG.md", "Changelog", f"/{name}/changelog/", "the changes of every release"))
     return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
                ref, github_stars(repo), requirements(project), project, root, tuple(pages))
 
@@ -292,6 +388,7 @@ def resolve(target: str, source: str, lib: Lib, ids: dict[str, set[str]], errors
         return target
     path, _, anchor = target.partition("#")
     rel = posixpath.normpath(posixpath.join(posixpath.dirname(source), path)) if path else source
+    rel = "README.md" if rel == OVERVIEW else rel  # the Overview page is the README and docs/overview.md
     if anchor and rel in ids and anchor not in ids[rel]:
         errors.append(f"{lib.name}/{source}: no heading for {target}")
     frag = f"#{anchor}" if anchor else ""
@@ -312,9 +409,18 @@ def render_docs(lib: Lib, origin: str, errors: list[str]) -> tuple[dict[str, str
     """The HTML of each page of a library and its markdown copy, by source path, with their
     links resolved."""
     texts = {p.source: (lib.root / p.source).read_text() for p in lib.pages}
+    # The Overview: the README's entrance, without its list and the line pointing here, then
+    # docs/overview.md without its title. Each part keeps its own folder for relative links.
+    entrance = texts["README.md"].partition("\n## Documentation\n")[0]
+    texts["README.md"] = "".join(line for line in entrance.splitlines(keepends=True)
+                                 if line.strip() != site_line(lib.name))
+    if (lib.root / OVERVIEW).exists():
+        texts[OVERVIEW] = re.sub(r"\A# .*\n+", "", (lib.root / OVERVIEW).read_text())
     parsed = {source: md.parse(text) for source, text in texts.items()}
     ids = {source: {t.attrGet("id") for t in tokens if t.type == "heading_open"}
            for source, tokens in parsed.items()}
+    if OVERVIEW in ids:
+        ids["README.md"] = ids[OVERVIEW] = ids["README.md"] | ids[OVERVIEW]
 
     def copy(source: str) -> str:
         code = {i for t in parsed[source] if t.type in ("fence", "code_block") for i in range(*t.map)}
@@ -338,7 +444,11 @@ def render_docs(lib: Lib, origin: str, errors: list[str]) -> tuple[dict[str, str
             fix(token, source)
             for child in token.children or ():
                 fix(child, source)
-    return {source: md.renderer.render(tokens, md.options, {}) for source, tokens in parsed.items()}, markdown
+    html = {source: md.renderer.render(tokens, md.options, {}) for source, tokens in parsed.items()}
+    if OVERVIEW in html:
+        html["README.md"] += html.pop(OVERVIEW)
+        markdown["README.md"] = markdown["README.md"].rstrip("\n") + "\n\n" + markdown.pop(OVERVIEW)
+    return html, markdown
 
 
 # Dependencies between the libraries
@@ -512,6 +622,7 @@ def main() -> None:
         sections.append({"name": group, "libs": [lib for lib in by_stars if lib.group == group]})
     links = dependency_links(libs)
     fail(unpinned(links))
+    fail(sibling_problems(libs))
     lib_facts = {lib.name: facts(lib, libs) for lib in libs}
 
     theme = Environment(loader=FileSystemLoader(THEME), autoescape=select_autoescape(["html"]),
