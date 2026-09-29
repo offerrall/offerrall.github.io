@@ -37,3 +37,7 @@ group = "Types & forms"
 [[lib]]
 repo = "offerrall/pytypehintweb"
 group = "Types & forms"
+
+[[lib]]
+repo = "offerrall/FuncToWeb"
+group = "Types & forms"

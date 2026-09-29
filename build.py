@@ -33,7 +33,7 @@ THEME = ROOT / "theme"
 OUT = ROOT / "_site"
 CACHE = ROOT / ".cache"
 
-DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w-]+/)*[\w-]+\.md)\)")
+DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w.-]+/)*[\w.-]+\.md)\)")
 HTML_URL = re.compile(r'\b(src|href)="([^"]+)"')
 EXTERNAL = re.compile(r"^([a-z][a-z0-9+.-]*:|//)")
 
