@@ -92,9 +92,11 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     root, ref = checkout(repo, local)
     project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
     name = project["name"]
-    version = project.get("version") or re.search(
-        r'__version__ = "([^"]+)"', (root / "src" / name / "__init__.py").read_text()
-    ).group(1)
+    init = next((p for p in (root / "src" / name / "__init__.py", root / name / "__init__.py") if p.exists()), None)
+    found = init and re.search(r'^__version__ = "([^"]+)"', init.read_text(), re.M)
+    version = project.get("version") or (found and found.group(1))
+    if not version:
+        fail([f"{repo}: no version in pyproject.toml or as __version__ in (src/){name}/__init__.py"])
     if not local and ref != f"v{version}":
         fail([f"{repo}: tag {ref} holds version {version}"])
 

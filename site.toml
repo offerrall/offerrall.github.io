@@ -17,3 +17,7 @@ group = "CNC, laser & CAD"
 [[lib]]
 repo = "offerrall/PyGrbl_Streamer"
 group = "CNC, laser & CAD"
+
+[[lib]]
+repo = "offerrall/pyeasydeploy"
+group = "Deployment"

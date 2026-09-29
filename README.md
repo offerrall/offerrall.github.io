@@ -25,7 +25,7 @@ ntfy topic `offerepos`.
 ## What a library needs
 
 - **`pyproject.toml`** with `name`, `description` (its line on the home page) and the version,
-  in `version` or as `__version__` in `src/<name>/__init__.py`.
+  in `version` or as `__version__` in `src/<name>/__init__.py` or `<name>/__init__.py`.
 - **Release tags `v<major>.<minor>.<patch>`**, each holding that version.
 - **`README.md`** with a `## Documentation` section that lists every file in `docs/`, one per
   line, in reading order. That list is the library's menu on the site:
