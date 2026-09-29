@@ -83,7 +83,8 @@ hyphen (`pygrbl_streamer` is shown, installed and linked as `pygrbl-streamer`).
   presentation and `docs/overview.md`), its docs, and its changelog.
 - **`/dependencies/`**: the exact pins between the libraries, and the packages from PyPI each one
   needs to run.
-- **`/doc/` and `/llms.txt`**: the same content as markdown, for AI agents.
+- **`/doc/` and `/llms.txt`**: the same content as markdown, for AI agents, with the rules above
+  and this README, so an agent knows what a new library must be.
 
 ## How it updates
 
@@ -105,7 +106,7 @@ passes its own.
 
 | Path | What it is |
 |---|---|
-| `site.toml` | The site's title, description, URL and links, and the libraries with their groups |
+| `site.toml` | The site's title, description, URL, repository and links, and the libraries with their groups |
 | `build.py` | Reads the libraries, checks the rules, turns their markdown into HTML and fills the templates |
 | `theme/` | The design: `base.html`, `home.html`, `page.html` and `dependencies.html` for people, `doc.html` and `llms.txt` for agents ([Jinja](https://jinja.palletsprojects.com/) templates), and `static/`, copied as is to the root of the site |
 | `.github/workflows/deploy.yml` | The hourly rebuild, the deploy to GitHub Pages and the ntfy message on failure |
@@ -126,8 +127,9 @@ How the rules read their data:
 
 | URL | What it is |
 |---|---|
-| `/doc/` | Every library, in the groups of `site.toml`: version, description, `pip install`, repository, Python, license, dependencies, the exact versions it pins of the others and those that pin it, and its pages as markdown |
-| `/llms.txt` | The same index as markdown, following [llms.txt](https://llmstxt.org) |
+| `/doc/` | The rules every library follows, then every library, in the groups of `site.toml`: version, description, `pip install`, repository, Python, license, dependencies, the exact versions it pins of the others and those that pin it, and its pages as markdown |
+| `/llms.txt` | The same index as markdown, following [llms.txt](https://llmstxt.org), linking the rules |
+| `/doc/site.md` | This README: the rules, what the site shows and how it reads them |
 | `/doc/<lib>/index.md` | The README of a library |
 | `/doc/<lib>/<path>.md` | A doc, at the path of its HTML page: `/func-to-web/design/router/` is `/doc/func-to-web/design/router.md` |
 

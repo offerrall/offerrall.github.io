@@ -2,7 +2,13 @@
 
 > {{ site.description }} Every page of {{ origin }} as markdown, for agents: each library's README and docs, at the release the site shows.
 
-Each section is a library. Its first link is its README, with its version, group, install command, repository and the exact versions it pins of the other libraries here; the rest are its docs, in reading order. The same index as HTML: {{ origin }}/doc/
+The first section is the site itself; each one after it is a library. Its first link is its README, with its version, group, install command, repository and the exact versions it pins of the other libraries here; the rest are its docs, in reading order. The same index as HTML: {{ origin }}/doc/
+
+Every library here follows the same rules, and a new one must too: its name, its releases, its `pyproject.toml` and the shape of its README and docs. The site checks them at each library's latest release, and a library joins it when it follows them and is added to `site.toml` in {{ site.repo }}.
+
+## The site
+
+- [The rules and how the site works]({{ origin }}/doc/site.md): the README of {{ site.repo }}, the rules every library follows first.
 {% for entry in catalog | map(attribute="libs") | sum(start=[]) %}{% set lib = entry.lib %}
 ## {{ lib.name }}
 

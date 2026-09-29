@@ -15,6 +15,11 @@
 <p>{{ site.description }} This is the site for agents: each library's README and docs at the release the <a href="/">site</a> shows, every page as markdown. The same index as markdown: <a href="/llms.txt">/llms.txt</a>.</p>
 </header>
 <main>
+<section id="rules">
+<h2>The rules</h2>
+<p>Every library here follows these rules, and a new one must too: the site checks them at each library's latest release and does not build while one is broken. A library joins the site when it follows them and is added to <a href="{{ site.repo }}/blob/main/site.toml"><code>site.toml</code></a> with its group. How the site reads and shows the libraries: <a href="/doc/site.md">/doc/site.md</a>, the README of <a href="{{ site.repo }}">the site's repository</a>.</p>
+{{ rules | safe }}
+</section>
 {% for group in catalog %}
 <section>
 <h2>{{ group.name }}</h2>

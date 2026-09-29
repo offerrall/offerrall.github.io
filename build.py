@@ -663,7 +663,15 @@ def main() -> None:
                                          "used_by": [link for link in links if link.used is lib]}
                                         for lib in libs if lib.group == group]}
                for group in dict.fromkeys(lib.group for lib in libs)]
-    write(OUT / "doc" / "index.html", theme.get_template("doc.html").render(site=site, catalog=catalog))
+    # With them, this repository's README: the rules every library follows, whole at /doc/site.md
+    # and its rules on /doc/, so an agent there knows what a new library must be.
+    readme = (ROOT / "README.md").read_text()
+    rules = readme.partition("\n## The rules\n")[2].partition("\n## ")[0]
+    if not rules.strip():
+        fail(["README.md: no ## The rules section for /doc/"])
+    write(OUT / "doc" / "site.md", readme)
+    write(OUT / "doc" / "index.html", theme.get_template("doc.html").render(
+        site=site, catalog=catalog, rules=md.render(rules)))
     write(OUT / "llms.txt", theme.get_template("llms.txt").render(site=site, origin=origin, catalog=catalog))
 
     errors: list[str] = []
