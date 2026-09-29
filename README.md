@@ -62,7 +62,8 @@ Everything the site says about a library is read from its latest release on ever
 written by hand: its version, description, license, Python versions and dependencies as its
 `pyproject.toml` declares them, its GitHub stars, its docs, and the exact versions the libraries
 pin of each other. If the site says a library has two dependencies, its released `pyproject.toml`
-declares those two.
+declares those two. Names appear in the form PyPI displays: lowercase, separators as a single
+hyphen (`pygrbl_streamer` is shown, installed and linked as `pygrbl-streamer`).
 
 - **Home**: the ten libraries with the most GitHub stars, then every library by group.
 - **A library's page**: what its `pyproject.toml` declares, then its README and its docs.

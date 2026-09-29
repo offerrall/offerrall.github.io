@@ -227,7 +227,9 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     root, ref = checkout(repo, local)
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     project = pyproject["project"]
-    name = project["name"]
+    # Shown everywhere in PyPI's canonical form: lowercase, separators as one hyphen
+    # (pygrbl_streamer is pygrbl-streamer), the spelling PyPI itself displays.
+    name = normalized(project["name"])
     version = declared_version(root, pyproject)
     if not version:
         fail([f"{repo}: pyproject.toml declares no version this build can read"])
