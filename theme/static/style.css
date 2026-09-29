@@ -288,6 +288,29 @@ kbd {
   .deps-view { padding-top: 2rem; }
 }
 
+.dep-section + .dep-section { margin-top: 3.5rem; }
+.dep-section h2 {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .9rem;
+  margin: 0 0 1.5rem; padding-bottom: .7rem; border-bottom: 1px dashed var(--line);
+  font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+}
+.dep-section h2 span { font-weight: 400; letter-spacing: .06em; color: var(--muted); text-transform: none; font-size: 12px; }
+.external { width: 100%; border-collapse: collapse; font-size: 13px; }
+.external th { text-align: left; font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); padding: 0 1.5rem .5rem 0; }
+.external td { padding: .55rem 1.5rem .55rem 0; border-top: 1px dashed var(--line); vertical-align: top; }
+.external td:first-child { white-space: nowrap; color: var(--fg); font-weight: 500; }
+.external .use { display: inline-block; margin: 0 1.2rem .15rem 0; }
+.external .use a { color: var(--muted); }
+.external a:hover { color: var(--accent); }
+.external code { font: inherit; color: var(--faint); }
+.dep-section .none { color: var(--faint); font-size: 13px; }
+@media (max-width: 40rem) {
+  .external thead { display: none; }
+  .external td { display: block; padding: .15rem 0; border-top: 0; }
+  .external tr { display: block; padding: .55rem 0; border-top: 1px dashed var(--line); }
+  .external tbody tr:first-child { border-top: 0; padding-top: 0; }
+}
+
 /* Dependency graph */
 
 .depgraph { margin: 0; }

@@ -359,6 +359,21 @@ def facts(lib: Lib, libs: list[Lib]) -> dict:
     }
 
 
+def external_dependencies(libs: list[Lib]) -> list[dict]:
+    """The packages from elsewhere that the libraries need, each with who needs it and how,
+    the most shared first."""
+    ours = {normalized(lib.name) for lib in libs}
+    packages: dict[str, dict] = {}
+    for lib in libs:
+        for text in lib.project.get("dependencies", []):
+            found = REQUIREMENT.match(text)
+            if not found or normalized(found[1]) in ours:
+                continue
+            package = packages.setdefault(normalized(found[1]), {"name": found[1], "users": []})
+            package["users"].append({"lib": lib, "spec": found[2].strip()})
+    return sorted(packages.values(), key=lambda p: (-len(p["users"]), p["name"].lower()))
+
+
 def unpinned(links: list[Link]) -> list[str]:
     """A library that needs another of these must pin it exactly, so a new release of one
     can never change what an installed release of the other does."""
@@ -461,7 +476,7 @@ def main() -> None:
     graph = graph_layout(libs, links)
     linked = {name for link in links for name in (link.user.name, link.used.name)}
     write(OUT / "dependencies" / "index.html", theme.get_template("dependencies.html").render(
-        site=site, graph=graph, links=links, count=len(libs),
+        site=site, graph=graph, links=links, count=len(libs), external=external_dependencies(libs),
         standalone=[lib for lib in libs if lib.name not in linked]))
 
     # The pages for agents: an index, llms.txt, and every page as markdown. Libraries in the order

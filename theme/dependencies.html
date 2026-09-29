@@ -6,7 +6,9 @@
     <span class="path">~/{{ site.title }}/dependencies</span><span class="cursor" aria-hidden="true"></span>
     <a class="switch" href="/">libraries <kbd>u</kbd></a>
   </header>
-  {% include "graph.html" %}
+  <section class="dep-section">
+    <h2>internal <span>between these libraries · {{ links | length }} links</span></h2>
+    {% include "graph.html" %}
   {# The same links as text, for screens too narrow for the drawing. #}
   <ul class="deplist">
     {% for link in links %}
@@ -14,8 +16,26 @@
     {% endfor %}
     {% if standalone %}<li class="alone"><span>standalone</span> {% for lib in standalone %}<a href="{{ lib.pages[0].url }}">{{ lib.name }}</a>{{ ", " if not loop.last }}{% endfor %}</li>{% endif %}
   </ul>
+  </section>
+
+  <section class="dep-section">
+    <h2>external <span>packages from PyPI they need to run · {{ external | length }}</span></h2>
+    {% if external %}
+    <table class="external">
+      <thead><tr><th>package</th><th>needed by</th></tr></thead>
+      <tbody>
+        {% for package in external %}
+        <tr>
+          <td><a href="https://pypi.org/project/{{ package.name }}/">{{ package.name }}</a></td>
+          <td>{% for use in package.users %}<span class="use"><a href="{{ use.lib.pages[0].url }}">{{ use.lib.name }}</a> <code>{{ use.spec or "any version" }}</code></span>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="none">none</p>{% endif %}
+  </section>
 </main>
 {% endblock %}
 {% block mode %}DEPS{% endblock %}
-{% block message %}{{ links | length }} links between {{ count }} libraries{% endblock %}
+{% block message %}{{ links | length }} internal links · {{ external | length }} external packages · {{ count }} libraries{% endblock %}
 {% block keys %}<kbd>u</kbd> libraries{% endblock %}
