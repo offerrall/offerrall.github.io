@@ -19,7 +19,8 @@ python -m http.server -d _site
 
 `.github/workflows/deploy.yml` rebuilds the site from scratch and deploys it to GitHub Pages on a
 push to `main` and every hour. The libraries do not know the site exists: a new release shows up
-within the hour. If a build fails, the site stays as it was.
+within the hour. If a build fails, the site stays as it was and the reason is sent to the
+ntfy topic `offerepos`.
 
 ## What a library needs
 

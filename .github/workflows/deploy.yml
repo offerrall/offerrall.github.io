@@ -24,12 +24,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv run build.py
+      - run: uv run build.py 2>&1 | tee build.log
+        shell: bash  # with pipefail, so a failed build fails the step
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Tell ntfy (topic offerepos) why it failed
+        if: failure()
+        run: >
+          curl -sS -H "Title: offerrall.github.io did not build" -H "Priority: high" -H "Tags: warning"
+          --data-binary "$(tail -n 15 build.log 2>/dev/null)
+          $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          https://ntfy.sh/offerepos
       # GitHub disables schedules after 60 days without activity in the repository;
       # enabling the workflow again resets that count.
       - run: gh api -X PUT repos/${{ github.repository }}/actions/workflows/deploy.yml/enable
