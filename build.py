@@ -33,7 +33,7 @@ THEME = ROOT / "theme"
 OUT = ROOT / "_site"
 CACHE = ROOT / ".cache"
 
-DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/[\w-]+\.md)\)")
+DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w-]+/)*[\w-]+\.md)\)")
 HTML_URL = re.compile(r'\b(src|href)="([^"]+)"')
 EXTERNAL = re.compile(r"^([a-z][a-z0-9+.-]*:|//)")
 
@@ -88,15 +88,32 @@ def checkout(repo: str, local: bool) -> tuple[Path, str]:
     return root, tag
 
 
+def declared_version(root: Path, pyproject: dict) -> str | None:
+    """The version where pyproject.toml declares it: `version`, a hatch `path`, or a
+    setuptools `attr`, whose file holds `__version__ = "X.Y.Z"`."""
+    if "version" in pyproject["project"]:
+        return pyproject["project"]["version"]
+    tool = pyproject.get("tool", {})
+    files = []
+    if path := tool.get("hatch", {}).get("version", {}).get("path"):
+        files = [root / path]
+    elif attr := tool.get("setuptools", {}).get("dynamic", {}).get("version", {}).get("attr"):
+        module = attr.rsplit(".", 1)[0].replace(".", "/")
+        files = [base / f for base in (root / "src", root) for f in (f"{module}.py", f"{module}/__init__.py")]
+    for file in files:
+        if file.exists() and (found := re.search(r'^__version__ = "([^"]+)"', file.read_text(), re.M)):
+            return found.group(1)
+    return None
+
+
 def load_lib(repo: str, group: str, local: bool) -> Lib:
     root, ref = checkout(repo, local)
-    project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+    project = pyproject["project"]
     name = project["name"]
-    init = next((p for p in (root / "src" / name / "__init__.py", root / name / "__init__.py") if p.exists()), None)
-    found = init and re.search(r'^__version__ = "([^"]+)"', init.read_text(), re.M)
-    version = project.get("version") or (found and found.group(1))
+    version = declared_version(root, pyproject)
     if not version:
-        fail([f"{repo}: no version in pyproject.toml or as __version__ in (src/){name}/__init__.py"])
+        fail([f"{repo}: pyproject.toml declares no version this build can read"])
     if not local and ref != f"v{version}":
         fail([f"{repo}: tag {ref} holds version {version}"])
 
@@ -107,7 +124,7 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     listed = [m for line in section.group(1).splitlines() if (m := DOC_ITEM.match(line))]
 
     errors = []
-    on_disk = {f"docs/{p.name}" for p in (root / "docs").glob("*.md")}
+    on_disk = {p.relative_to(root).as_posix() for p in (root / "docs").rglob("*.md")}
     for m in listed:
         if m["path"] not in on_disk:
             errors.append(f"{name}: README lists {m['path']}, which does not exist")
@@ -116,7 +133,10 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     fail(errors)
 
     pages = [Page("README.md", name, f"/{name}/")]
-    pages += [Page(m["path"], m["title"], f"/{name}/{Path(m['path']).stem}/") for m in listed]
+    # Menu labels are plain text: `run()` in the README list reads as run() in the menu.
+    pages += [Page(m["path"], m["title"].replace("`", ""),
+                   f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/")
+              for m in listed]
     return Lib(name, group, project["description"], version,
                f"https://github.com/{repo}", ref, root, tuple(pages))
 

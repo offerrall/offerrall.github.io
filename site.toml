@@ -33,3 +33,7 @@ group = "Types & forms"
 [[lib]]
 repo = "offerrall/pytypehintstore"
 group = "Types & forms"
+
+[[lib]]
+repo = "offerrall/pytypehintweb"
+group = "Types & forms"
