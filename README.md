@@ -46,10 +46,17 @@ ntfy topic `offerepos`.
 - **`pyproject.toml`** with `name`, `description` (its line on the home page) and the version:
   `version`, or a file named by `[tool.hatch.version] path` or `[tool.setuptools.dynamic]
   version = {attr = ...}` holding `__version__ = "X.Y.Z"`.
-- **Release tags `v<major>.<minor>.<patch>`**, each holding that version.
+- **Release tags `v<major>.<minor>.<patch>`**, each holding that version, and published: PyPI
+  has that version.
+- **`CHANGELOG.md`** whose first entry is the released version.
+- **A `LICENSE` file**, and the license declared in `pyproject.toml` (an SPDX expression, a text
+  or an OSI classifier); when it declares MIT, the file holds the MIT text.
+- **Python classifiers within `requires-python`**: none for a version it does not support.
+- **Every URL in `[project.urls]` answering.**
 - **Dependencies on other libraries of the site pinned exactly**, `name==X.Y.Z`: a new
   release of one can never change what an installed release of another does.
-- **`README.md`** with a `## Documentation` section that lists every `.md` under `docs/`,
+- **`README.md`** titled with the package or repository name, without a version, and with a
+  `## Documentation` section that lists every `.md` under `docs/`,
   subfolders included, one per line, in reading order. That list is the library's menu on the site:
 
   ```markdown
@@ -62,8 +69,8 @@ ntfy topic `offerepos`.
   the README's). Images go in `docs/images/`. Links are relative, as they work on GitHub
   (`usage.md#options`).
 
-The build fails when a library breaks any of these: a missing section, a doc not listed or listed
-but missing, a `docs/index.md`, a tag that holds another version, a dependency on another library
-of the site that is not pinned exactly, or a link to a file or heading that does not exist.
+The build fails when a library breaks any of these, and the reason goes to the ntfy topic
+`offerepos`. What the site shows about a library, its version, dependencies, license and pins,
+is read from its released `pyproject.toml` on every build, never written by hand.
 
 To add a library, add it to `site.toml`.

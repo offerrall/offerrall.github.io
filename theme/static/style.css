@@ -353,6 +353,22 @@ kbd {
 .docs .meta .repo { display: inline-flex; align-items: center; gap: .35rem; }
 .docs .meta .icon { width: 13px; height: 13px; }
 
+/* The Overview's facts, from pyproject.toml */
+
+.facts { max-width: 44rem; margin: 0 0 2.5rem; padding: 1rem 1.25rem 1.1rem; border: 1px solid var(--line); background: var(--panel); font-size: 13px; }
+.facts .source { margin: 0 0 .8rem; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.facts dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .45rem 1.5rem; margin: 0; }
+.facts dt { color: var(--faint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding-top: .15rem; }
+.facts dt span { color: var(--muted); margin-left: .3rem; }
+.facts dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+.facts ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; }
+.facts a { border-bottom: 1px solid var(--line); }
+.facts a:hover { color: var(--accent); border-color: var(--accent); }
+@media (max-width: 40rem) {
+  .facts dl { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
+  .facts dd { margin-bottom: .55rem; }
+}
+
 /* Rendered Markdown */
 
 article { max-width: 44rem; font: 15.5px/1.72 var(--sans); }

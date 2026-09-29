@@ -27,6 +27,24 @@
     <p class="meta"><span>v{{ lib.version }}</span><a href="{{ lib.repo }}" class="repo">{{ icon("github") }}GitHub</a><a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a></p>
   </aside>
   <main>
+    {% if page.source == "README.md" %}
+    {# Read from the pyproject.toml of the release this page shows, as written there. #}
+    {% macro requirements(items) %}{% for item in items %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.text }}</a>{% else %}{{ item.text }}{% endif %}</li>{% endfor %}{% endmacro %}
+    <section class="facts" aria-label="From pyproject.toml">
+      <p class="source">pyproject.toml · {{ lib.ref }}</p>
+      <dl>
+        <dt>version</dt><dd>{{ lib.version }}</dd>
+        <dt>python</dt><dd>{{ facts.python or "any" }}</dd>
+        <dt>license</dt><dd>{{ facts.license or "none declared" }}</dd>
+        <dt>dependencies <span>{{ facts.dependencies | length }}</span></dt>
+        <dd>{% if facts.dependencies %}<ul>{{ requirements(facts.dependencies) }}</ul>{% else %}none{% endif %}</dd>
+        {% for extra, items in facts.extras %}
+        <dt>extra [{{ extra }}] <span>{{ items | length }}</span></dt><dd><ul>{{ requirements(items) }}</ul></dd>
+        {% endfor %}
+        {% if facts.commands %}<dt>commands</dt><dd><ul>{% for command in facts.commands %}<li>{{ command }}</li>{% endfor %}</ul></dd>{% endif %}
+      </dl>
+    </section>
+    {% endif %}
     <article>{{ content | safe }}</article>
     <nav class="pager">
       {% if prev %}<a class="prev" href="{{ prev.url }}"><span><kbd>[</kbd> previous</span>{{ label(prev) }}</a>{% endif %}

@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,6 +71,7 @@ class Lib:
     ref: str  # the tag read, or "main" for a working tree
     stars: int
     requires: tuple[tuple[str, str], ...]  # (normalized name, version specifier) of each dependency
+    project: dict  # the [project] table of its pyproject.toml, as read
     root: Path
     pages: tuple[Page, ...]  # the README first, then the docs in README order
 
@@ -141,6 +143,67 @@ def github_stars(repo: str) -> int:
         return json.load(response)["stargazers_count"]
 
 
+def http_status(url: str) -> int:
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "offerrall.github.io"})
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        return error.code
+
+
+def declared_license(project: dict) -> str | None:
+    """The license pyproject.toml declares: an SPDX expression, a text, or an OSI classifier."""
+    license = project.get("license")
+    if isinstance(license, str):
+        return license
+    if isinstance(license, dict) and license.get("text"):
+        return license["text"]
+    for classifier in project.get("classifiers", []):
+        if classifier.startswith("License :: OSI Approved :: "):
+            return classifier.removeprefix("License :: OSI Approved :: ").removesuffix(" License")
+    return None
+
+
+def release_problems(repo: str, root: Path, project: dict, version: str, local: bool) -> list[str]:
+    """What every released library must have, besides its docs."""
+    name, problems = project["name"], []
+
+    changelog = root / "CHANGELOG.md"
+    newest = changelog.exists() and re.search(r"^#+\s*\[?v?(\d+\.\d+\.\d+)", changelog.read_text(), re.M)
+    if not newest or newest.group(1) != version:
+        problems.append(f"{name}: CHANGELOG.md does not start with an entry for {version}")
+
+    if not local and http_status(f"https://pypi.org/pypi/{name}/{version}/json") != 200:
+        problems.append(f"{name}: PyPI has no {version}; the release did not publish")
+
+    title = (root / "README.md").read_text().splitlines()[0]
+    if title not in (f"# {name}", f"# {repo.split('/')[1]}"):
+        problems.append(f"{name}: the README title is {title!r}; use the package or repository name")
+
+    for label, url in project.get("urls", {}).items():
+        if (status := http_status(url)) != 200:
+            problems.append(f"{name}: [project.urls] {label} = {url} answers {status}")
+
+    license_files = [f for f in root.iterdir()
+                     if f.is_file() and f.name.upper().startswith(("LICENSE", "LICENCE", "COPYING"))]
+    declared = declared_license(project)
+    if not license_files:
+        problems.append(f"{name}: no LICENSE file")
+    elif not declared:
+        problems.append(f"{name}: pyproject.toml declares no license")
+    elif declared == "MIT" and "Permission is hereby granted, free of charge" not in license_files[0].read_text():
+        problems.append(f"{name}: pyproject.toml declares MIT and {license_files[0].name} is not the MIT text")
+
+    floor = re.search(r">=\s*3\.(\d+)", project.get("requires-python", ""))
+    for classifier in project.get("classifiers", []):
+        supported = re.fullmatch(r"Programming Language :: Python :: 3\.(\d+)", classifier)
+        if supported and floor and int(supported.group(1)) < int(floor.group(1)):
+            problems.append(f"{name}: classifier Python 3.{supported.group(1)} is below "
+                            f"requires-python {project['requires-python']}")
+    return problems
+
+
 def load_lib(repo: str, group: str, local: bool) -> Lib:
     root, ref = checkout(repo, local)
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
@@ -168,6 +231,7 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
         errors.append(f"{name}: {missing} is not listed in README '## Documentation'")
     if "docs/index.md" in on_disk:
         errors.append(f"{name}: docs/index.md would have the markdown URL of the README, rename it")
+    errors += release_problems(repo, root, project, version, local)
     fail(errors)
 
     pages = [Page("README.md", name, f"/{name}/", "")]
@@ -177,7 +241,7 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
                    (m["about"] or "").strip().removesuffix("."))
               for m in listed]
     return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
-               ref, github_stars(repo), requirements(project), root, tuple(pages))
+               ref, github_stars(repo), requirements(project), project, root, tuple(pages))
 
 
 # Markdown to HTML
@@ -274,6 +338,25 @@ def dependency_links(libs: list[Lib]) -> list[Link]:
     by_name = {normalized(lib.name): lib for lib in libs}
     return [Link(lib, by_name[name], spec) for lib in libs for name, spec in lib.requires
             if name in by_name and by_name[name] is not lib]
+
+
+def facts(lib: Lib, libs: list[Lib]) -> dict:
+    """What the Overview shows before the README: its pyproject.toml, as written."""
+    pages = {normalized(other.name): other.pages[0].url for other in libs}
+
+    def requirement(text: str) -> dict:
+        found = REQUIREMENT.match(text)
+        return {"text": text, "url": pages.get(normalized(found[1])) if found else None}
+
+    project = lib.project
+    return {
+        "python": project.get("requires-python"),
+        "license": declared_license(project),
+        "dependencies": [requirement(text) for text in project.get("dependencies", [])],
+        "extras": [(extra, [requirement(text) for text in texts])
+                   for extra, texts in project.get("optional-dependencies", {}).items()],
+        "commands": list(project.get("scripts", {})),
+    }
 
 
 def unpinned(links: list[Link]) -> list[str]:
@@ -383,7 +466,8 @@ def main() -> None:
 
     # The pages for agents: an index, llms.txt, and every page as markdown. Libraries in the order
     # of site.toml, grouped as on the home page.
-    catalog = [{"name": group, "libs": [{"lib": lib, "uses": [link for link in links if link.user is lib],
+    catalog = [{"name": group, "libs": [{"lib": lib, "facts": facts(lib, libs),
+                                         "uses": [link for link in links if link.user is lib],
                                          "used_by": [link for link in links if link.used is lib]}
                                         for lib in libs if lib.group == group]}
                for group in dict.fromkeys(lib.group for lib in libs)]
@@ -397,6 +481,7 @@ def main() -> None:
             write(OUT / page.markdown.lstrip("/"), markdown[page.source])
             write(OUT / page.url.strip("/") / "index.html", theme.get_template("page.html").render(
                 site=site, lib=lib, page=page, content=html[page.source],
+                facts=facts(lib, libs),
                 uses=[link for link in links if link.user is lib],
                 used_by=[link for link in links if link.used is lib],
                 prev=lib.pages[i - 1] if i > 0 else None,
