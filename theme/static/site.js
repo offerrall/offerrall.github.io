@@ -2,13 +2,24 @@
 
 const status = document.getElementById("status-msg");
 const idle = status.textContent;
-const say = (text) => (status.textContent = text || idle);
+// Restarting a CSS animation needs the class off, a reflow, and the class back on.
+const replay = (element, name) => {
+  element.classList.remove(name);
+  void element.offsetWidth;
+  element.classList.add(name);
+};
+const say = (text) => {
+  const next = text || idle;
+  if (status.textContent === next) return;
+  status.textContent = next;
+  replay(status, "flash");
+};
 
 function copy(button) {
   const text = button.dataset.copy;
   navigator.clipboard.writeText(text).then(
     () => {
-      button.classList.add("copied");
+      replay(button, "copied");
       say(`copied: ${text}`);
       clearTimeout(button.timer);
       button.timer = setTimeout(() => button.classList.remove("copied"), 1500);

@@ -474,6 +474,48 @@ article td[align="center"] { text-align: center; color: var(--muted); font-size:
 .pager a > span { display: flex; align-items: center; gap: .4rem; font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; }
 .pager .next { margin-left: auto; align-items: flex-end; text-align: right; }
 
+/* Motion: every control answers the pointer, the press and the result. */
+
+:root { --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent); --ease-out: cubic-bezier(.2, .8, .2, 1); }
+:is(.copy, .repo, .tab, .prompt .switch, .pager a, .row, .docs aside li a, .deplist a, .external a) {
+  transition: color .15s, border-color .15s, background-color .15s, box-shadow .25s, transform .12s var(--ease-out);
+}
+.icon { transition: transform .18s var(--ease-out); }
+
+.row :is(.copy, .repo):hover, .copy.wide:hover, .pager a:hover {
+  color: var(--accent); border-color: var(--accent); background-color: var(--accent-soft);
+}
+.row :is(.copy, .repo):hover .icon { transform: translateY(-1px) scale(1.08); }
+.tab:not([aria-selected="true"]):hover { color: var(--accent); border-color: var(--accent); background-color: var(--accent-soft); }
+.row.sel :is(.copy, .repo):hover { color: inherit; border-color: currentColor; background-color: color-mix(in srgb, var(--sel-fg) 14%, transparent); }
+@media (prefers-color-scheme: dark) {
+  .row :is(.copy, .repo):hover, .copy.wide:hover, .tab:not([aria-selected="true"]):hover { box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+}
+
+:is(.copy, .repo, .tab, .prompt .switch, .pager a):active { transform: scale(.94); transition-duration: .06s; }
+
+.copy.copied { color: var(--accent); border-color: var(--accent); animation: copied-ring .7s var(--ease-out); }
+.row.sel .copy.copied { color: inherit; border-color: currentColor; }
+.copy.copied .done .icon, .copy.copied .done { animation: copied-pop .4s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes copied-ring {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+  to { box-shadow: 0 0 0 10px transparent; }
+}
+@keyframes copied-pop {
+  from { transform: scale(.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+#status-msg.flash { animation: status-in .28s var(--ease-out); }
+@keyframes status-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
 /* Small screens and touch: no status bar, one column. */
 
 @media (hover: none), (max-width: 40rem) {
