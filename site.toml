@@ -47,3 +47,7 @@ group = "Types & forms"
 repo = "offerrall/FuncToWeb"
 name_predates_convention = true
 group = "Web"
+
+[[lib]]
+repo = "offerrall/wgpupixel"
+group = "Images"
