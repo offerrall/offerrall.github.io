@@ -276,7 +276,7 @@ kbd {
 .docs .path a:hover { color: var(--fg); }
 .docs .lib { margin: .2rem 0 1.25rem; font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .copy.wide { display: grid; width: 100%; justify-items: start; padding: .5rem .7rem; text-align: left; }
-.copy.wide .cmd { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.copy.wide .cmd { color: var(--fg); max-width: 100%; overflow-wrap: anywhere; }
 .copy.wide .sigil { color: var(--accent); }
 .copy.wide { grid-template-columns: minmax(0, 1fr) auto; gap: .6rem; align-items: center; }
 .copy.wide .cmd { grid-area: 1 / 1; }
