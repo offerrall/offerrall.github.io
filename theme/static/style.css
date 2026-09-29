@@ -393,6 +393,20 @@ kbd {
   .facts dd { margin-bottom: .55rem; }
 }
 
+/* A resolved install, folded */
+
+details.install summary { cursor: pointer; color: var(--fg); list-style: none; }
+details.install summary::-webkit-details-marker { display: none; }
+details.install summary::before { content: "+ "; color: var(--accent); }
+details.install[open] summary::before { content: "− "; }
+details.install summary span { color: var(--faint); }
+details.install ul { display: block; list-style: none; padding: 0; margin: .6rem 0 .2rem; columns: 2 16rem; column-gap: 2rem; }
+details.install li { break-inside: avoid; padding: .12rem 0; font-size: 12px; }
+details.install .pkg { color: var(--fg); }
+details.install code { font: inherit; color: var(--faint); }
+details.install .via { color: var(--faint); font-size: 11px; }
+.installed td:nth-child(2) { color: var(--muted); }
+
 /* Rendered Markdown */
 
 article { max-width: 44rem; font: 15.5px/1.72 var(--sans); }

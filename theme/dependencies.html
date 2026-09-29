@@ -34,6 +34,24 @@
     </table>
     {% else %}<p class="none">none</p>{% endif %}
   </section>
+
+  <section class="dep-section">
+    <h2>installed <span>everything pip brings with each library, resolved for Python {{ resolved_for[0] }} on Linux · {{ distinct }} distinct packages in all</span></h2>
+    <table class="external installed">
+      <thead><tr><th>library</th><th>declares</th><th>installs</th></tr></thead>
+      <tbody>
+        {% for lib, facts in installs %}
+        <tr>
+          <td><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a></td>
+          <td>{{ facts.install_direct }}</td>
+          <td>{% if facts.install %}<details class="install"><summary>{{ facts.install | length }} package{{ "s" if facts.install | length != 1 }}</summary>
+            <ul>{% for package in facts.install %}<li><span class="pkg">{{ package.name }}</span> <code>{{ package.version }}</code>{% if not package.direct %} <span class="via">via {{ package.via | join(", ") }}</span>{% endif %}</li>{% endfor %}</ul>
+          </details>{% else %}nothing{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
 </main>
 {% endblock %}
 {% block mode %}DEPS{% endblock %}

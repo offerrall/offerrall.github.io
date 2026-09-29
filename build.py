@@ -371,7 +371,11 @@ def facts(lib: Lib, libs: list[Lib]) -> dict:
         return {"text": text, "url": pages.get(normalized(found[1])) if found else None}
 
     project = lib.project
+    install = resolved_install(lib)
     return {
+        "install": install,
+        "install_direct": sum(package["direct"] for package in install),
+        "resolved_for": RESOLVED_FOR,
         "python": project.get("requires-python"),
         "license": declared_license(project),
         "dependencies": [requirement(text) for text in project.get("dependencies", [])],
@@ -394,6 +398,31 @@ def external_dependencies(libs: list[Lib]) -> list[dict]:
             package = packages.setdefault(normalized(found[1]), {"name": found[1], "users": []})
             package["users"].append({"lib": lib, "spec": found[2].strip()})
     return sorted(packages.values(), key=lambda p: (-len(p["users"]), p["name"].lower()))
+
+
+RESOLVED_FOR = ("3.13", "x86_64-unknown-linux-gnu")  # what pip would install there, today
+
+
+def resolved_install(lib: Lib) -> list[dict]:
+    """Every package installing the library brings, as uv resolves its pyproject.toml: each
+    with its version, whether the library declares it, and which packages pull it in."""
+    result = subprocess.run(
+        ["uv", "pip", "compile", str(lib.root / "pyproject.toml"), "--python-version", RESOLVED_FOR[0],
+         "--python-platform", RESOLVED_FOR[1], "--no-header", "--quiet"],
+        capture_output=True, text=True)
+    if result.returncode:
+        fail([f"{lib.name}: its dependencies cannot be installed together\n{result.stderr.strip()}"])
+    packages: list[dict] = []
+    for line in result.stdout.splitlines():
+        if found := re.match(r"([A-Za-z0-9._-]+)==(\S+)", line):
+            packages.append({"name": normalized(found[1]), "version": found[2], "direct": False, "via": []})
+        elif line.strip().startswith("#") and packages:
+            note = line.strip().lstrip("#").strip().removeprefix("via").strip()
+            if note.endswith("pyproject.toml)"):
+                packages[-1]["direct"] = True
+            elif note:
+                packages[-1]["via"].append(normalized(note.split()[0]))
+    return packages
 
 
 def unpinned(links: list[Link]) -> list[str]:
@@ -483,6 +512,7 @@ def main() -> None:
         sections.append({"name": group, "libs": [lib for lib in by_stars if lib.group == group]})
     links = dependency_links(libs)
     fail(unpinned(links))
+    lib_facts = {lib.name: facts(lib, libs) for lib in libs}
 
     theme = Environment(loader=FileSystemLoader(THEME), autoescape=select_autoescape(["html"]),
                         undefined=StrictUndefined)
@@ -500,11 +530,14 @@ def main() -> None:
     linked = {name for link in links for name in (link.user.name, link.used.name)}
     write(OUT / "dependencies" / "index.html", theme.get_template("dependencies.html").render(
         site=site, graph=graph, links=links, count=len(libs), external=external_dependencies(libs),
+        installs=sorted(((lib, lib_facts[lib.name]) for lib in libs), key=lambda i: (-len(i[1]["install"]), i[0].name)),
+        distinct=len({package["name"] for f in lib_facts.values() for package in f["install"]}),
+        resolved_for=RESOLVED_FOR,
         standalone=[lib for lib in libs if lib.name not in linked]))
 
     # The pages for agents: an index, llms.txt, and every page as markdown. Libraries in the order
     # of site.toml, grouped as on the home page.
-    catalog = [{"name": group, "libs": [{"lib": lib, "facts": facts(lib, libs),
+    catalog = [{"name": group, "libs": [{"lib": lib, "facts": lib_facts[lib.name],
                                          "uses": [link for link in links if link.user is lib],
                                          "used_by": [link for link in links if link.used is lib]}
                                         for lib in libs if lib.group == group]}
@@ -519,7 +552,7 @@ def main() -> None:
             write(OUT / page.markdown.lstrip("/"), markdown[page.source])
             write(OUT / page.url.strip("/") / "index.html", theme.get_template("page.html").render(
                 site=site, lib=lib, page=page, content=html[page.source],
-                facts=facts(lib, libs),
+                facts=lib_facts[lib.name],
                 uses=[link for link in links if link.user is lib],
                 used_by=[link for link in links if link.used is lib],
                 prev=lib.pages[i - 1] if i > 0 else None,

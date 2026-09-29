@@ -41,6 +41,10 @@
         {% for extra, items in facts.extras %}
         <dt>extra [{{ extra }}] <span>{{ items | length }}</span></dt><dd><ul>{{ requirements(items) }}</ul></dd>
         {% endfor %}
+        <dt>installs <span>{{ facts.install | length }}</span></dt>
+        <dd>{% if facts.install %}<details class="install"><summary>{{ facts.install_direct }} declared, {{ facts.install | length - facts.install_direct }} pulled in by them <span title="resolved with uv at build time">· python {{ facts.resolved_for[0] }}, linux</span></summary>
+          <ul>{% for package in facts.install %}<li><span class="pkg">{{ package.name }}</span> <code>{{ package.version }}</code>{% if not package.direct %} <span class="via">via {{ package.via | join(", ") }}</span>{% endif %}</li>{% endfor %}</ul>
+        </details>{% else %}nothing{% endif %}</dd>
         {% if facts.commands %}<dt>commands</dt><dd><ul>{% for command in facts.commands %}<li>{{ command }}</li>{% endfor %}</ul></dd>{% endif %}
       </dl>
     </section>
