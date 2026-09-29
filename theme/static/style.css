@@ -122,8 +122,9 @@ kbd {
   font-weight: 600;
   letter-spacing: .08em;
 }
-#status-msg { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg); }
-.status .keys { display: flex; align-items: center; gap: .35rem; white-space: nowrap; }
+/* The message sits at the right: browsers draw the URL of a hovered link over the bottom left. */
+#status-msg { order: 2; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg); text-align: right; }
+.status .keys { order: 1; display: flex; align-items: center; gap: .35rem; white-space: nowrap; }
 
 /* Index */
 
