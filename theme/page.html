@@ -2,6 +2,7 @@
 {% from "icons.html" import icon %}
 {% block title %}{% if page.source == "README.md" %}{{ lib.name }}{% else %}{{ page.title }} · {{ lib.name }}{% endif %}{% endblock %}
 {% block description %}{{ lib.description }}{% endblock %}
+{% block alternate %}<link rel="alternate" type="text/markdown" href="{{ page.markdown }}">{% endblock %}
 {% macro label(p) %}{% if p.source == "README.md" %}Overview{% else %}{{ p.title }}{% endif %}{% endmacro %}
 {% block body %}
 <div class="docs">

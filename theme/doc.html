@@ -1,0 +1,44 @@
+{#- The index for agents: plain HTML, every page linked as markdown. -#}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ site.title }} · for agents</title>
+<meta name="description" content="{{ site.description }} Every page, as markdown.">
+<link rel="alternate" type="text/markdown" href="/llms.txt">
+<style>body { max-width: 46rem; margin: 2rem auto; padding: 0 1rem; font: 16px/1.5 system-ui, sans-serif; }</style>
+</head>
+<body>
+<header>
+<h1>{{ site.title }}</h1>
+<p>{{ site.description }} This is the site for agents: each library's README and docs at the release the <a href="/">site</a> shows, every page as markdown. The same index as markdown: <a href="/llms.txt">/llms.txt</a>.</p>
+</header>
+<main>
+{% for group in catalog %}
+<section>
+<h2>{{ group.name }}</h2>
+{% for entry in group.libs %}{% set lib = entry.lib %}
+<article id="{{ lib.name }}">
+<h3>{{ lib.name }} {{ lib.version }}</h3>
+<p>{{ lib.description }}</p>
+<dl>
+<dt>Group</dt><dd>{{ lib.group }}</dd>
+<dt>Install</dt><dd><code>pip install {{ lib.name }}</code></dd>
+<dt>Repository</dt><dd><a href="{{ lib.repo }}">{{ lib.repo }}</a></dd>
+{% if entry.uses %}<dt>Uses</dt>{% for link in entry.uses %}<dd><a href="#{{ link.used.name }}">{{ link.used.name }}</a> <code>{{ link.spec }}</code></dd>{% endfor %}
+{% endif -%}
+{% if entry.used_by %}<dt>Used by</dt>{% for link in entry.used_by %}<dd><a href="#{{ link.user.name }}">{{ link.user.name }}</a> <code>{{ link.spec }}</code></dd>{% endfor %}
+{% endif -%}
+</dl>
+<ul>
+{% for page in lib.pages %}<li><a href="{{ page.markdown }}">{% if page.source == "README.md" %}Overview{% else %}{{ page.title }}{% endif %}</a>{% if page.about %}: {{ page.about | inline | safe }}{% endif %}</li>
+{% endfor -%}
+</ul>
+</article>
+{% endfor %}
+</section>
+{% endfor %}
+</main>
+</body>
+</html>

@@ -42,7 +42,7 @@
     <p class="empty" hidden>no library matches</p>
   </div>
 
-  <nav class="links">{% for link in site.links %}<a href="{{ link.url }}">{{ link.name }}</a>{% endfor %}</nav>
+  <nav class="links">{% for link in site.links %}<a href="{{ link.url }}">{{ link.name }}</a>{% endfor %}<a href="/doc/">For agents</a></nav>
 </main>
 {% endblock %}
 {% block mode %}INDEX{% endblock %}

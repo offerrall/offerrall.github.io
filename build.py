@@ -23,7 +23,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from markdown_it import MarkdownIt
 from mdit_py_plugins.anchors import anchors_plugin
 from pygments import highlight as pygmentize
@@ -36,8 +36,13 @@ THEME = ROOT / "theme"
 OUT = ROOT / "_site"
 CACHE = ROOT / ".cache"
 
-DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w.-]+/)*[\w.-]+\.md)\)")
+DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w.-]+/)*[\w.-]+\.md)\)"
+                      r"(?:\s*[:—–-]?\s*(?P<about>.*))?")
 HTML_URL = re.compile(r'\b(src|href)="([^"]+)"')
+# Where markdown names a URL: a link or image, a reference definition, an HTML attribute.
+# Code spans match too, so that the targets inside them are left as written.
+MD_URL = re.compile(r"(?P<code>(?P<ticks>`+).+?(?<!`)(?P=ticks)(?!`))"
+                    r"|(?P<lead>\]\(\s*<?|^ {0,3}\[[^\]]+\]:\s*<?|\b(?:src|href)=\")(?P<url>[^\s()<>\"]+)")
 EXTERNAL = re.compile(r"^([a-z][a-z0-9+.-]*:|//)")
 REQUIREMENT = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*([^;]*)")
 
@@ -47,6 +52,12 @@ class Page:
     source: str  # path inside the repository, e.g. "docs/usage.md"
     title: str
     url: str
+    about: str  # what follows the link in the README list, "" for the README itself
+
+    @property
+    def markdown(self) -> str:
+        """The URL of its markdown copy: /doc/<lib>/index.md for the README, else the page's path + .md."""
+        return f"/doc{self.url}index.md" if self.source == "README.md" else f"/doc{self.url.rstrip('/')}.md"
 
 
 @dataclass(frozen=True)
@@ -145,7 +156,8 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     section = re.search(r"^## Documentation\n(.*?)(?=^## |\Z)", readme, re.M | re.S)
     if not section:
         fail([f"{name}: README.md has no '## Documentation' section"])
-    listed = [m for line in section.group(1).splitlines() if (m := DOC_ITEM.match(line))]
+    items = re.sub(r"\n[ \t]+(?=\S)", " ", section.group(1))  # an item wrapped over several lines
+    listed = [m for line in items.splitlines() if (m := DOC_ITEM.match(line))]
 
     errors = []
     on_disk = {p.relative_to(root).as_posix() for p in (root / "docs").rglob("*.md")}
@@ -154,12 +166,15 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
             errors.append(f"{name}: README lists {m['path']}, which does not exist")
     for missing in sorted(on_disk - {m["path"] for m in listed}):
         errors.append(f"{name}: {missing} is not listed in README '## Documentation'")
+    if "docs/index.md" in on_disk:
+        errors.append(f"{name}: docs/index.md would have the markdown URL of the README, rename it")
     fail(errors)
 
-    pages = [Page("README.md", name, f"/{name}/")]
+    pages = [Page("README.md", name, f"/{name}/", "")]
     # Menu labels are plain text: `run()` in the README list reads as run() in the menu.
     pages += [Page(m["path"], m["title"].replace("`", ""),
-                   f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/")
+                   f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/",
+                   (m["about"] or "").strip().removesuffix("."))
               for m in listed]
     return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
                ref, github_stars(repo), requirements(project), root, tuple(pages))
@@ -183,8 +198,10 @@ md = (
 )
 
 
-def resolve(target: str, source: str, lib: Lib, ids: dict[str, set[str]], errors: list[str]) -> str:
-    """Map a link written for GitHub to its place on the site."""
+def resolve(target: str, source: str, lib: Lib, ids: dict[str, set[str]], errors: list[str],
+            origin: str | None = None) -> str:
+    """Map a link written for GitHub to its place on the site: the page it names, or, given the
+    site's `origin`, the absolute URL of that page's markdown copy."""
     if EXTERNAL.match(target):
         return target
     path, _, anchor = target.partition("#")
@@ -192,24 +209,35 @@ def resolve(target: str, source: str, lib: Lib, ids: dict[str, set[str]], errors
     if anchor and rel in ids and anchor not in ids[rel]:
         errors.append(f"{lib.name}/{source}: no heading for {target}")
     frag = f"#{anchor}" if anchor else ""
-    if not path:
+    if not path and origin is None:
         return frag
     for page in lib.pages:
         if page.source == rel:
-            return page.url + frag
+            return (page.url if origin is None else origin + page.markdown) + frag
     if rel.startswith("docs/images/"):
-        return f"/{lib.name}/images/{rel.removeprefix('docs/images/')}"
+        return f"{origin or ''}/{lib.name}/images/{rel.removeprefix('docs/images/')}"
     if not (lib.root / rel).exists():
         errors.append(f"{lib.name}/{source}: broken link {target}")
     kind = "tree" if (lib.root / rel).is_dir() else "blob"
     return f"{lib.repo}/{kind}/{lib.ref}/{rel}{frag}"
 
 
-def render_docs(lib: Lib, errors: list[str]) -> dict[str, str]:
-    """The HTML of each page of a library, by source path, with its links resolved."""
-    parsed = {p.source: md.parse((lib.root / p.source).read_text()) for p in lib.pages}
+def render_docs(lib: Lib, origin: str, errors: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+    """The HTML of each page of a library and its markdown copy, by source path, with their
+    links resolved."""
+    texts = {p.source: (lib.root / p.source).read_text() for p in lib.pages}
+    parsed = {source: md.parse(text) for source, text in texts.items()}
     ids = {source: {t.attrGet("id") for t in tokens if t.type == "heading_open"}
            for source, tokens in parsed.items()}
+
+    def copy(source: str) -> str:
+        code = {i for t in parsed[source] if t.type in ("fence", "code_block") for i in range(*t.map)}
+        lines = texts[source].splitlines(keepends=True)
+        return "".join(line if i in code else MD_URL.sub(
+            lambda m: m[0] if m["code"] else m["lead"] + resolve(m["url"], source, lib, ids, errors, origin),
+            line) for i, line in enumerate(lines))
+
+    markdown = {source: copy(source) for source in parsed}
 
     def fix(token, source):
         for attr in ("href", "src"):
@@ -224,7 +252,7 @@ def render_docs(lib: Lib, errors: list[str]) -> dict[str, str]:
             fix(token, source)
             for child in token.children or ():
                 fix(child, source)
-    return {source: md.renderer.render(tokens, md.options, {}) for source, tokens in parsed.items()}
+    return {source: md.renderer.render(tokens, md.options, {}) for source, tokens in parsed.items()}, markdown
 
 
 # Dependencies between the libraries
@@ -335,8 +363,11 @@ def main() -> None:
     links = dependency_links(libs)
     fail(unpinned(links))
 
-    theme = Environment(loader=FileSystemLoader(THEME), autoescape=True, undefined=StrictUndefined)
+    theme = Environment(loader=FileSystemLoader(THEME), autoescape=select_autoescape(["html"]),
+                        undefined=StrictUndefined)
+    theme.filters["inline"] = md.renderInline
     site = config["site"]
+    origin = site["url"].rstrip("/")
 
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -350,10 +381,20 @@ def main() -> None:
         site=site, graph=graph, links=links, count=len(libs),
         standalone=[lib for lib in libs if lib.name not in linked]))
 
+    # The pages for agents: an index, llms.txt, and every page as markdown. Libraries in the order
+    # of site.toml, grouped as on the home page.
+    catalog = [{"name": group, "libs": [{"lib": lib, "uses": [link for link in links if link.user is lib],
+                                         "used_by": [link for link in links if link.used is lib]}
+                                        for lib in libs if lib.group == group]}
+               for group in dict.fromkeys(lib.group for lib in libs)]
+    write(OUT / "doc" / "index.html", theme.get_template("doc.html").render(site=site, catalog=catalog))
+    write(OUT / "llms.txt", theme.get_template("llms.txt").render(site=site, origin=origin, catalog=catalog))
+
     errors: list[str] = []
     for lib in libs:
-        html = render_docs(lib, errors)
+        html, markdown = render_docs(lib, origin, errors)
         for i, page in enumerate(lib.pages):
+            write(OUT / page.markdown.lstrip("/"), markdown[page.source])
             write(OUT / page.url.strip("/") / "index.html", theme.get_template("page.html").render(
                 site=site, lib=lib, page=page, content=html[page.source],
                 uses=[link for link in links if link.user is lib],
@@ -363,7 +404,7 @@ def main() -> None:
         images = lib.root / "docs" / "images"
         if images.is_dir():
             shutil.copytree(images, OUT / lib.name / "images")
-    fail(errors)
+    fail(list(dict.fromkeys(errors)))  # the HTML and the markdown of a page report the same link
     print(f"built {sum(len(lib.pages) for lib in libs) + 1} pages into {OUT.relative_to(ROOT)}/")
 
 

@@ -11,9 +11,28 @@ python -m http.server -d _site
 
 | Path | What it is |
 |---|---|
-| `site.toml` | The content: the site's title, description and links, and the libraries with their groups |
-| `theme/` | The design: `base.html`, `home.html` and `page.html` ([Jinja](https://jinja.palletsprojects.com/) templates), and `static/` (styles, script, icon), copied as is to the root of the site |
+| `site.toml` | The content: the site's title, description, URL and links, and the libraries with their groups |
+| `theme/` | The design: `base.html`, `home.html`, `page.html` and `dependencies.html` for people, `doc.html` and `llms.txt` for agents ([Jinja](https://jinja.palletsprojects.com/) templates), and `static/` (styles, script, icon), copied as is to the root of the site |
 | `build.py` | Reads the libraries, checks them, turns their Markdown into HTML and fills the templates |
+
+## For agents
+
+The site has a second face, for AI agents: the same content as plain markdown, without styles,
+scripts or tabs.
+
+| URL | What it is |
+|---|---|
+| `/doc/` | Every library, in the groups of `site.toml`: version, description, `pip install`, repository, the exact versions it pins of the others and those that pin it, and its pages as markdown, each with the line that follows it in the README list |
+| `/llms.txt` | The same index as markdown, following [llms.txt](https://llmstxt.org) |
+| `/doc/<lib>/index.md` | The README of a library |
+| `/doc/<lib>/<path>.md` | A doc, at the path of its HTML page: `/func-to-web/design/router/` is `/doc/func-to-web/design/router.md` |
+
+A markdown page is its source with the links rewritten as absolute URLs: to another page, its
+markdown copy; to an image, the one the site publishes; to any other file of the repository, that
+file on GitHub at the release tag. The HTML pages and the markdown pages resolve links with the
+same function, so both always point to the same place. Every human page names its markdown copy in
+`<link rel="alternate" type="text/markdown">`; the home page and the dependencies view name
+`/llms.txt`.
 
 ## How it updates
 
@@ -39,11 +58,12 @@ ntfy topic `offerepos`.
   - [Getting started](docs/getting-started.md): install and a first example.
   ```
 
-- **`docs/*.md`**, one page per topic. Images go in `docs/images/`. Links are relative, as they
-  work on GitHub (`usage.md#options`).
+- **`docs/*.md`**, one page per topic, none named `docs/index.md` (its markdown copy would be
+  the README's). Images go in `docs/images/`. Links are relative, as they work on GitHub
+  (`usage.md#options`).
 
 The build fails when a library breaks any of these: a missing section, a doc not listed or listed
-but missing, a tag that holds another version, a dependency on another library of the site that is
-not pinned exactly, or a link to a file or heading that does not exist.
+but missing, a `docs/index.md`, a tag that holds another version, a dependency on another library
+of the site that is not pinned exactly, or a link to a file or heading that does not exist.
 
 To add a library, add it to `site.toml`.

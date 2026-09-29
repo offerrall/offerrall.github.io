@@ -4,6 +4,7 @@
 [site]
 title = "offerrall"
 description = "Libraries by offerrall."
+url = "https://offerrall.github.io"
 links = [
   { name = "GitHub", url = "https://github.com/offerrall" },
   { name = "PyPI", url = "https://pypi.org/user/offerrall/" },
