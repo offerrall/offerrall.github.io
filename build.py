@@ -39,6 +39,7 @@ CACHE = ROOT / ".cache"
 DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w.-]+/)*[\w.-]+\.md)\)")
 HTML_URL = re.compile(r'\b(src|href)="([^"]+)"')
 EXTERNAL = re.compile(r"^([a-z][a-z0-9+.-]*:|//)")
+REQUIREMENT = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*([^;]*)")
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,7 @@ class Lib:
     repo: str  # https://github.com/owner/name
     ref: str  # the tag read, or "main" for a working tree
     stars: int
+    requires: tuple[tuple[str, str], ...]  # (normalized name, version specifier) of each dependency
     root: Path
     pages: tuple[Page, ...]  # the README first, then the docs in README order
 
@@ -110,6 +112,15 @@ def declared_version(root: Path, pyproject: dict) -> str | None:
     return None
 
 
+def normalized(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def requirements(project: dict) -> tuple[tuple[str, str], ...]:
+    found = (REQUIREMENT.match(spec) for spec in project.get("dependencies", []))
+    return tuple((normalized(m[1]), m[2].strip()) for m in found if m)
+
+
 def github_stars(repo: str) -> int:
     request = urllib.request.Request(f"https://api.github.com/repos/{repo}",
                                      headers={"Accept": "application/vnd.github+json"})
@@ -151,7 +162,7 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
                    f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/")
               for m in listed]
     return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
-               ref, github_stars(repo), root, tuple(pages))
+               ref, github_stars(repo), requirements(project), root, tuple(pages))
 
 
 # Markdown to HTML
@@ -216,6 +227,78 @@ def render_docs(lib: Lib, errors: list[str]) -> dict[str, str]:
     return {source: md.renderer.render(tokens, md.options, {}) for source, tokens in parsed.items()}
 
 
+# Dependencies between the libraries
+
+@dataclass(frozen=True)
+class Link:
+    user: Lib
+    used: Lib
+    spec: str  # e.g. "==1.0.0", or "" when any version will do
+
+    @property
+    def behind(self) -> bool:
+        """Pinned to a version older than the one the site shows."""
+        return self.spec.startswith("==") and self.spec[2:].strip() != self.used.version
+
+
+def dependency_links(libs: list[Lib]) -> list[Link]:
+    """What each library declares in [project] dependencies, among the libraries listed."""
+    by_name = {normalized(lib.name): lib for lib in libs}
+    return [Link(lib, by_name[name], spec) for lib in libs for name, spec in lib.requires
+            if name in by_name and by_name[name] is not lib]
+
+
+NODE_W, NODE_H, COLUMN_W, ROW_H, PAD = 190, 46, 360, 72, 24
+
+
+def graph_layout(libs: list[Lib], links: list[Link]) -> dict:
+    """Columns by depth: a library sits one column right of the deepest one it uses."""
+    linked = [lib for lib in libs if any(lib in (link.user, link.used) for link in links)]
+    depth: dict[str, int] = {}
+
+    def depth_of(lib: Lib) -> int:
+        if lib.name not in depth:
+            depth[lib.name] = 0  # a cycle stops here instead of recursing forever
+            depth[lib.name] = 1 + max((depth_of(l.used) for l in links if l.user is lib), default=-1)
+        return depth[lib.name]
+
+    for lib in linked:
+        depth_of(lib)
+    columns = [[lib for lib in linked if depth[lib.name] == c] for c in range(max(depth.values(), default=-1) + 1)]
+
+    row: dict[str, float] = {}
+    for c, column in enumerate(columns):
+        def place(lib: Lib) -> tuple:
+            used = [row[l.used.name] for l in links if l.user is lib and l.used.name in row]
+            return (sum(used) / len(used) if used else 0, lib.name)
+        column.sort(key=place)
+        for i, lib in enumerate(column):
+            row[lib.name] = i
+
+    rows = max((len(column) for column in columns), default=0)
+    boxes = {}
+    for c, column in enumerate(columns):
+        top = PAD + (rows - len(column)) * ROW_H / 2
+        for i, lib in enumerate(column):
+            boxes[lib.name] = {"lib": lib, "x": PAD + c * COLUMN_W, "y": top + i * ROW_H}
+    edges = []
+    for link in links:
+        a, b = boxes[link.user.name], boxes[link.used.name]
+        # Arrows into one box arrive spread along its side, in the order of their sources.
+        arriving = sorted((l for l in links if l.used is link.used), key=lambda l: boxes[l.user.name]["y"])
+        share = (arriving.index(link) + 1) / (len(arriving) + 1)
+        ax, ay = a["x"], a["y"] + NODE_H / 2
+        bx, by = b["x"] + NODE_W + 6, b["y"] + NODE_H * share
+        edges.append({"link": link, "label": (ax - 10, ay - 6),
+                      "path": f"M{ax},{ay} C{ax - 90},{ay} {bx + 90},{by} {bx},{by}"})
+    return {
+        "boxes": list(boxes.values()), "edges": edges, "node_w": NODE_W, "node_h": NODE_H,
+        "width": 2 * PAD + max(len(columns) - 1, 0) * COLUMN_W + NODE_W,
+        "height": 2 * PAD + max(rows - 1, 0) * ROW_H + NODE_H,
+        "standalone": [lib for lib in libs if lib not in linked],
+    }
+
+
 # Writing the site
 
 def write(path: Path, text: str) -> None:
@@ -232,6 +315,7 @@ def main() -> None:
     sections = [{"name": "Top", "libs": by_stars[:10]}]
     for group in dict.fromkeys(lib.group for lib in libs):
         sections.append({"name": group, "libs": [lib for lib in by_stars if lib.group == group]})
+    links = dependency_links(libs)
 
     theme = Environment(loader=FileSystemLoader(THEME), autoescape=True, undefined=StrictUndefined)
     site = config["site"]
@@ -240,7 +324,8 @@ def main() -> None:
         shutil.rmtree(OUT)
     shutil.copytree(THEME / "static", OUT)
     (OUT / ".nojekyll").touch()
-    write(OUT / "index.html", theme.get_template("home.html").render(site=site, sections=sections, count=len(libs)))
+    write(OUT / "index.html", theme.get_template("home.html").render(
+        site=site, sections=sections, count=len(libs), graph=graph_layout(libs, links)))
 
     errors: list[str] = []
     for lib in libs:
@@ -248,6 +333,8 @@ def main() -> None:
         for i, page in enumerate(lib.pages):
             write(OUT / page.url.strip("/") / "index.html", theme.get_template("page.html").render(
                 site=site, lib=lib, page=page, content=html[page.source],
+                uses=[link for link in links if link.user is lib],
+                used_by=[link for link in links if link.used is lib],
                 prev=lib.pages[i - 1] if i > 0 else None,
                 next=lib.pages[i + 1] if i + 1 < len(lib.pages) else None))
         images = lib.root / "docs" / "images"

@@ -268,6 +268,32 @@ kbd {
 .js .index .links { margin-top: 1.25rem; }
 .index .links a:hover { color: var(--fg); }
 
+/* Dependency graph */
+
+.depgraph { margin: 0; }
+.depgraph .canvas { overflow-x: auto; padding-bottom: .5rem; }
+.depgraph svg { display: block; max-width: none; font: 12px var(--mono); }
+.depgraph .edge path { fill: none; stroke: var(--faint); stroke-width: 1.25; }
+.depgraph .edge text { fill: var(--muted); font-size: 11px; }
+.depgraph .edge.behind path { stroke: var(--accent); stroke-dasharray: 5 4; }
+.depgraph .edge.behind text { fill: var(--accent); }
+.depgraph .arrow-ok path { fill: var(--faint); }
+.depgraph .arrow-behind path { fill: var(--accent); }
+.depgraph .node rect { fill: var(--panel); stroke: var(--line); transition: stroke .15s; }
+.depgraph .node .name { fill: var(--fg); font-weight: 600; font-size: 13px; }
+.depgraph .node .version { fill: var(--faint); font-size: 11px; }
+.depgraph .node:hover rect, .depgraph .node:focus-visible rect { stroke: var(--accent); }
+.depgraph .node:focus-visible { outline: none; }
+.depgraph figcaption { margin-top: 1.25rem; font-size: 12px; color: var(--muted); max-width: 70ch; }
+.depgraph figcaption p { margin: .35rem 0; }
+.depgraph figcaption .behind { color: var(--accent); }
+.depgraph figcaption a { color: var(--fg); border-bottom: 1px solid var(--line); }
+.depgraph figcaption a:hover { border-color: var(--accent); }
+.depgraph code { font: inherit; color: var(--fg); }
+@media (prefers-color-scheme: dark) {
+  .depgraph .edge.behind path { filter: drop-shadow(0 0 3px rgb(255 176 0 / .35)); }
+}
+
 /* Library docs */
 
 .docs {
@@ -302,6 +328,12 @@ kbd {
 .docs aside nav a { display: flex; gap: .75rem; padding: .22rem 0; color: var(--muted); transition: color .15s; }
 .docs aside nav a:hover { color: var(--fg); }
 .docs aside nav a[aria-current] { color: var(--accent); text-shadow: var(--glow); }
+.docs .deps { display: flex; flex-wrap: wrap; gap: .25rem .6rem; margin: 1.25rem 0 0; font-size: 12px; }
+.docs .deps span { width: 100%; color: var(--faint); letter-spacing: .08em; text-transform: uppercase; font-size: 11px; }
+.docs .deps a { color: var(--muted); transition: color .15s; }
+.docs .deps a:hover { color: var(--fg); }
+.docs .deps a.behind, .docs .deps a.behind code { color: var(--accent); }
+.docs .deps code { font: inherit; color: var(--faint); }
 .docs .meta { display: flex; gap: 1rem; margin: 1.75rem 0 0; color: var(--faint); font-size: 12px; }
 .docs .meta a:hover { color: var(--fg); }
 .docs .meta .repo { display: inline-flex; align-items: center; gap: .35rem; }

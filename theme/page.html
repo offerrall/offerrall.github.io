@@ -21,6 +21,8 @@
       </details>
       <script>{const d = document.currentScript.previousElementSibling, m = matchMedia("(max-width: 52rem)"), f = () => (d.open = !m.matches); f(); m.addEventListener("change", f)}</script>
     </nav>
+    {% if uses %}<p class="deps"><span>uses</span>{% for link in uses %}<a href="{{ link.used.pages[0].url }}"{% if link.behind %} class="behind" title="pins {{ link.spec }}; the latest is {{ link.used.version }}"{% endif %}>{{ link.used.name }}{% if link.spec %} <code>{{ link.spec }}</code>{% endif %}</a>{% endfor %}</p>{% endif %}
+    {% if used_by %}<p class="deps"><span>used by</span>{% for link in used_by %}<a href="{{ link.user.pages[0].url }}">{{ link.user.name }}</a>{% endfor %}</p>{% endif %}
     <p class="meta"><span>v{{ lib.version }}</span><a href="{{ lib.repo }}" class="repo">{{ icon("github") }}GitHub</a><a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a></p>
   </aside>
   <main>

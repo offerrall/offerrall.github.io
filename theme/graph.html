@@ -1,0 +1,31 @@
+{# The dependency graph, laid out by build.py: an arrow goes from a library to one it needs. #}
+<figure class="depgraph">
+  <div class="canvas">
+    <svg viewBox="0 0 {{ graph.width }} {{ graph.height }}" width="{{ graph.width }}" height="{{ graph.height }}" role="img" aria-label="Dependencies between the libraries">
+      <defs>
+        {% for kind in ("ok", "behind") %}
+        <marker id="arrow-{{ kind }}" class="arrow-{{ kind }}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker>
+        {% endfor %}
+      </defs>
+      {% for edge in graph.edges %}
+      {% set link = edge.link %}
+      <g class="edge{{ ' behind' if link.behind }}">
+        <title>{{ link.user.name }} needs {{ link.used.name }} {{ link.spec or "(any version)" }}{% if link.behind %}; the latest is {{ link.used.version }}{% endif %}</title>
+        <path d="{{ edge.path }}" marker-end="url(#arrow-{{ 'behind' if link.behind else 'ok' }})"/>
+        {% if link.spec %}<text x="{{ edge.label[0] }}" y="{{ edge.label[1] }}" text-anchor="end">{{ link.spec }}</text>{% endif %}
+      </g>
+      {% endfor %}
+      {% for box in graph.boxes %}
+      <a class="node" href="{{ box.lib.pages[0].url }}">
+        <rect x="{{ box.x }}" y="{{ box.y }}" width="{{ graph.node_w }}" height="{{ graph.node_h }}"/>
+        <text class="name" x="{{ box.x + 14 }}" y="{{ box.y + 20 }}">{{ box.lib.name }}</text>
+        <text class="version" x="{{ box.x + 14 }}" y="{{ box.y + 36 }}">{{ box.lib.version }} · ★ {{ box.lib.stars }}</text>
+      </a>
+      {% endfor %}
+    </svg>
+  </div>
+  <figcaption>
+    <p>An arrow goes from a library to one it needs, read from each <code>pyproject.toml</code>. <span class="behind">Amber</span>: pinned to a version older than the latest.</p>
+    {% if graph.standalone %}<p>Standalone: {% for lib in graph.standalone %}<a href="{{ lib.pages[0].url }}">{{ lib.name }}</a>{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
+  </figcaption>
+</figure>

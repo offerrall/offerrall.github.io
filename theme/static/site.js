@@ -60,7 +60,7 @@ if (index) {
     groups.forEach((group, j) => group.classList.toggle("active", j === active));
     tabs.forEach((tab, j) => tab.setAttribute("aria-selected", j === active));
     tabs[active].scrollIntoView({ block: "nearest", inline: "nearest" });
-    empty.hidden = visible().length > 0;
+    empty.hidden = !groups[active].querySelector(".row") || visible().length > 0;
     select(filter.value ? (visible()[0] ?? null) : null);
   };
 
@@ -68,6 +68,7 @@ if (index) {
     const query = filter.value.trim().toLowerCase();
     groups.forEach((group, i) => {
       const rows = [...group.querySelectorAll(".row")];
+      if (!rows.length) return;  // the graph counts arrows, not rows
       rows.forEach((row) => (row.hidden = !row.dataset.search.includes(query)));
       const matches = rows.filter((row) => !row.hidden).length;
       tabs[i].querySelector(".count").textContent = String(matches).padStart(2, "0");

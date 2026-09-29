@@ -16,6 +16,7 @@
     {% for section in sections %}
     <button class="tab" type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ section.name }}<span class="count">{{ "%02d" | format(section.libs | length) }}</span></button>
     {% endfor %}
+    <button class="tab" type="button" role="tab" aria-selected="false">Graph<span class="count">{{ "%02d" | format(graph.edges | length) }}</span></button>
   </nav>
 
   <div class="panels">
@@ -38,6 +39,10 @@
       </ul>
     </section>
     {% endfor %}
+    <section class="group graph" data-name="Graph">
+      <h2><span>Graph</span><i></i></h2>
+      {% include "graph.html" %}
+    </section>
     <p class="empty" hidden>no library matches</p>
   </div>
 
