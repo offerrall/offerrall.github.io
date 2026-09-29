@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["markdown-it-py", "mdit-py-plugins", "jinja2"]
+# dependencies = ["markdown-it-py", "mdit-py-plugins", "jinja2", "pygments"]
 # ///
 """Build the site into _site/.
 
@@ -23,6 +23,10 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from markdown_it import MarkdownIt
 from mdit_py_plugins.anchors import anchors_plugin
+from pygments import highlight as pygmentize
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_by_name
+from pygments.util import ClassNotFound
 
 ROOT = Path(__file__).parent
 THEME = ROOT / "theme"
@@ -117,8 +121,17 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
 
 # Markdown to HTML
 
+def highlight(code: str, lang: str, _attrs: str) -> str:
+    """The colored HTML of a fenced block in a known language; "" leaves it plain."""
+    try:
+        lexer = get_lexer_by_name(lang)
+    except ClassNotFound:
+        return ""
+    return pygmentize(code, lexer, HtmlFormatter(nowrap=True))
+
+
 md = (
-    MarkdownIt("commonmark", {"html": True})
+    MarkdownIt("commonmark", {"html": True, "highlight": highlight})
     .enable(["table", "strikethrough"])
     .use(anchors_plugin, max_level=6, permalink=True, permalinkSymbol="#", permalinkBefore=True)
 )

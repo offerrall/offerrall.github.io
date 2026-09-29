@@ -10,6 +10,12 @@
   --sel-bg: #1c1914;
   --sel-fg: #f2ede1;
   --glow: none;
+  --tk-keyword: #a65800;
+  --tk-string: #4f6a1c;
+  --tk-comment: #9a8f76;
+  --tk-number: #a13d12;
+  --tk-name: #6a4a00;
+  --tk-builtin: #7c5a1e;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
 }
@@ -25,6 +31,12 @@
     --sel-bg: #ffb000;
     --sel-fg: #0d0c0a;
     --glow: 0 0 12px rgb(255 176 0 / .45);
+    --tk-keyword: #ffb000;
+    --tk-string: #b8c77e;
+    --tk-comment: #6c6453;
+    --tk-number: #f08b4f;
+    --tk-name: #f3d58c;
+    --tk-builtin: #d9a35f;
   }
   body::after {
     content: "";
@@ -337,6 +349,16 @@ article pre {
   line-height: 1.65;
 }
 article pre code { padding: 0; background: none; border: 0; font-size: inherit; }
+
+/* Code colors: build.py marks the tokens with Pygments classes. */
+pre code :is(.k, .kc, .kd, .kn, .kp, .kr, .kt, .ow) { color: var(--tk-keyword); }
+pre code :is(.s, .s1, .s2, .sa, .sb, .sc, .sd, .se, .sh, .si, .sr, .ss, .sx) { color: var(--tk-string); }
+pre code :is(.c, .c1, .ch, .cm, .cp, .cpf, .cs) { color: var(--tk-comment); }
+pre code :is(.m, .mb, .mf, .mh, .mi, .mo, .il) { color: var(--tk-number); }
+pre code :is(.nc, .nd, .ne, .nf, .fm, .nn, .nt, .na) { color: var(--tk-name); }
+pre code :is(.nb, .bp, .vm, .nv, .vc, .vg, .vi) { color: var(--tk-builtin); }
+pre code :is(.o, .p) { color: var(--muted); }
+pre code .gp { color: var(--faint); user-select: none; }
 
 article img { max-width: 100%; height: auto; vertical-align: middle; border: 1px solid var(--line); }
 article p > img:only-child, article p > a:only-child > img { display: block; margin: 1.75rem 0; }
