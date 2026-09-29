@@ -9,7 +9,7 @@
   <aside>
     <p class="path"><a href="/">~/{{ site.title }}/libraries/</a></p>
     <p class="lib"><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a></p>
-    <button class="copy wide pip" type="button" data-copy="{{ lib.install }}" aria-label="Copy {{ lib.install }}"><span class="cmd">{% if lib.language == "Python" %}<span class="sigil">$</span> {% endif %}{{ lib.install }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
+    <button class="copy wide pip" type="button" data-copy="{{ lib.install }}" aria-label="Copy {{ lib.install_label }}" title="{{ lib.install }}"><span class="cmd">{% if lib.language == "Python" %}<span class="sigil">$</span> {% endif %}{{ lib.install_label }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
     <button class="copy wide clone" type="button" data-copy="git clone {{ lib.repo }}" aria-label="Copy git clone {{ lib.repo }}" title="git clone {{ lib.repo }}"><span class="cmd"><span class="sigil">$</span> git clone {{ lib.repo | replace("https://github.com/", "") }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
     <nav>
       <details class="toc" open>

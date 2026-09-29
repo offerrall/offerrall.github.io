@@ -30,7 +30,8 @@
 <dl>
 <dt>Group</dt><dd>{{ lib.group }}</dd>
 <dt>Language</dt><dd>{% if lib.language == "Python" %}Python {{ entry.facts.python or "any" }}{% else %}{{ entry.facts.standard }}, built with CMake{% endif %}</dd>
-<dt>Install</dt><dd><code>{{ lib.install }}</code>{% if entry.facts.target %}, then link <code>{{ entry.facts.target }}</code>{% endif %}</dd>
+<dt>Install</dt><dd>{% if lib.language == "Python" %}<code>{{ lib.install }}</code>{% else %}with CMake, then link <code>{{ entry.facts.target }}</code>:<pre><code>include(FetchContent)
+{{ lib.install }}</code></pre>{% endif %}</dd>
 <dt>Repository</dt><dd><a href="{{ lib.repo }}">{{ lib.repo }}</a></dd>
 <dt>License</dt><dd>{{ entry.facts.license or "none declared" }}</dd>
 <dt>Dependencies</dt>{% for item in entry.facts.dependencies %}<dd><code>{{ item.text }}</code>{% if item.note %} ({{ item.note }}){% endif %}</dd>{% else %}<dd>none</dd>{% endfor %}

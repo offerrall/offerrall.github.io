@@ -82,8 +82,16 @@ class Lib:
 
     @property
     def install(self) -> str:
-        """How a user gets it: from PyPI, or found by CMake once installed."""
-        return f"pip install {self.name}" if self.language == "Python" else f"find_package({self.name})"
+        """How a user gets it: from PyPI, or fetched by CMake at the release the site shows."""
+        if self.language == "Python":
+            return f"pip install {self.name}"
+        return (f"FetchContent_Declare({self.name} GIT_REPOSITORY {self.repo} GIT_TAG v{self.version})\n"
+                f"FetchContent_MakeAvailable({self.name})")
+
+    @property
+    def install_label(self) -> str:
+        """The install line, short enough for a button."""
+        return self.install if self.language == "Python" else f"FetchContent {self.name} v{self.version}"
 
 
 def fail(errors: list[str]) -> None:

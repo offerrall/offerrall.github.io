@@ -129,8 +129,8 @@ says a library has two dependencies, its release declares those two. Names appea
 hyphen (`pygrbl_streamer` is shown, installed and linked as `pygrbl-streamer`).
 
 - **Home**: the ten libraries with the most GitHub stars, then every library by group.
-- **A library's page**: how to get it (`pip install <name>`, or `find_package(<name>)` and the
-  target `<name>::<name>`), what its `pyproject.toml` or `CMakeLists.txt` declares, then its Overview (the README's
+- **A library's page**: how to get it (`pip install <name>`, or CMake's `FetchContent` at the
+  release tag and the target `<name>::<name>`), what its `pyproject.toml` or `CMakeLists.txt` declares, then its Overview (the README's
   presentation and `docs/overview.md`), its docs, and its changelog.
 - **`/dependencies/`**: the exact pins between the libraries, the packages from elsewhere each
   one needs, and everything pip installs with each Python library.
