@@ -1,0 +1,6 @@
+# The libraries the site shows, in order. Everything else (description, version, docs)
+# is read from each repository at its highest release tag.
+
+[[lib]]
+repo = "offerrall/pycodecad"
+group = "CNC, laser & CAD"

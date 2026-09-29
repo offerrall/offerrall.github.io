@@ -1,0 +1,37 @@
+name: Build and deploy
+
+# Rebuilt from scratch on a push here, and every hour to pick up new library releases.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write  # for the keep-alive step
+
+concurrency: pages
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run build.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      # GitHub disables schedules after 60 days without activity in the repository;
+      # enabling the workflow again resets that count.
+      - run: gh api -X PUT repos/${{ github.repository }}/actions/workflows/deploy.yml/enable
+        env:
+          GH_TOKEN: ${{ github.token }}
