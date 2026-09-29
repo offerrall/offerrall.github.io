@@ -15,6 +15,9 @@
         {% if link.spec %}<text x="{{ edge.label[0] }}" y="{{ edge.label[1] }}" text-anchor="end">{{ link.spec }}</text>{% endif %}
       </g>
       {% endfor %}
+      {% if graph.standalone_label %}
+      <text class="row-label" x="{{ graph.standalone_label[0] }}" y="{{ graph.standalone_label[1] }}">standalone</text>
+      {% endif %}
       {% for box in graph.boxes %}
       <a class="node" href="{{ box.lib.pages[0].url }}">
         <rect x="{{ box.x }}" y="{{ box.y }}" width="{{ graph.node_w }}" height="{{ graph.node_h }}"/>
@@ -24,8 +27,4 @@
       {% endfor %}
     </svg>
   </div>
-  <figcaption>
-    <p>An arrow goes from a library to one it needs, read from each <code>pyproject.toml</code>. <span class="behind">Amber</span>: pinned to a version older than the latest.</p>
-    {% if graph.standalone %}<p>Standalone: {% for lib in graph.standalone %}<a href="{{ lib.pages[0].url }}">{{ lib.name }}</a>{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
-  </figcaption>
 </figure>

@@ -299,12 +299,21 @@ def graph_layout(libs: list[Lib], links: list[Link]) -> dict:
         bx, by = b["x"] + NODE_W + 6, b["y"] + NODE_H * share
         edges.append({"link": link, "label": (ax - 10, ay - 6),
                       "path": f"M{ax},{ay} C{ax - 90},{ay} {bx + 90},{by} {bx},{by}"})
-    return {
-        "boxes": list(boxes.values()), "edges": edges, "node_w": NODE_W, "node_h": NODE_H,
-        "width": 2 * PAD + max(len(columns) - 1, 0) * COLUMN_W + NODE_W,
-        "height": 2 * PAD + max(rows - 1, 0) * ROW_H + NODE_H,
-        "standalone": [lib for lib in libs if lib not in linked],
-    }
+    width = 2 * PAD + max(len(columns) - 1, 0) * COLUMN_W + NODE_W
+    height = 2 * PAD + max(rows - 1, 0) * ROW_H + NODE_H if linked else PAD
+
+    # Libraries that need none of the others and that none needs: a row of their own below.
+    standalone = [lib for lib in libs if lib not in linked]
+    label_y = None
+    if standalone:
+        label_y = height + 16
+        top = label_y + 18
+        for i, lib in enumerate(standalone):
+            boxes[lib.name] = {"lib": lib, "x": PAD + i * (NODE_W + 30), "y": top}
+        width = max(width, 2 * PAD + len(standalone) * (NODE_W + 30) - 30)
+        height = top + NODE_H + PAD
+    return {"boxes": list(boxes.values()), "edges": edges, "node_w": NODE_W, "node_h": NODE_H,
+            "width": width, "height": height, "standalone_label": (PAD, label_y) if standalone else None}
 
 
 # Writing the site

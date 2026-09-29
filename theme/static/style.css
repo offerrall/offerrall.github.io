@@ -284,12 +284,7 @@ kbd {
 .depgraph .node .version { fill: var(--faint); font-size: 11px; }
 .depgraph .node:hover rect, .depgraph .node:focus-visible rect { stroke: var(--accent); }
 .depgraph .node:focus-visible { outline: none; }
-.depgraph figcaption { margin-top: 1.25rem; font-size: 12px; color: var(--muted); max-width: 70ch; }
-.depgraph figcaption p { margin: .35rem 0; }
-.depgraph figcaption .behind { color: var(--accent); }
-.depgraph figcaption a { color: var(--fg); border-bottom: 1px solid var(--line); }
-.depgraph figcaption a:hover { border-color: var(--accent); }
-.depgraph code { font: inherit; color: var(--fg); }
+.depgraph .row-label { fill: var(--faint); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
 @media (prefers-color-scheme: dark) {
   .depgraph .edge.behind path { filter: drop-shadow(0 0 3px rgb(255 176 0 / .35)); }
 }
