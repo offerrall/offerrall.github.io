@@ -39,16 +39,19 @@ A library listed in `site.toml` follows all of these.
   the repository is accepted too), a presentation of at most 40 lines with at most one block of
   code, the line `The full documentation is at https://offerrall.github.io/<name>/.`, and a
   `## Documentation` section, its only section.
-- **The `## Documentation` list is the site's menu**: every page under `docs/`, subfolders
-  included, one per line, in reading order, `docs/overview.md` first, optionally followed by a
-  one-line description. It links to nothing outside `docs/` (the site adds the changelog). A
-  `### Maintaining` subheading may group the pages for maintainers.
+- **The `## Documentation` list is the site's menu, and it links the site**: every page under
+  `docs/`, subfolders included, one per line, in reading order, each linked by its address on the
+  site, so a reader on GitHub or PyPI lands there. `docs/<page>.md` is
+  `https://offerrall.github.io/<name>/<page>/`, and `docs/overview.md` is the library's own
+  address, listed first. An entry may be followed by a one-line description. The list links nothing
+  else (the site adds the changelog). A `### Maintaining` subheading may group the pages for
+  maintainers.
 
   ```markdown
   ## Documentation
 
-  - [Overview](docs/overview.md): what it is and how it works.
-  - [Getting started](docs/getting-started.md): a first example.
+  - [Overview](https://offerrall.github.io/pytypehint/): what it is and how it works.
+  - [Getting started](https://offerrall.github.io/pytypehint/getting-started/): a first example.
   ```
 
 - **`docs/overview.md` is the introduction**: on the site, the Overview page is the README's

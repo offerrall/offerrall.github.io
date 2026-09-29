@@ -38,8 +38,6 @@ THEME = ROOT / "theme"
 OUT = ROOT / "_site"
 CACHE = ROOT / ".cache"
 
-DOC_ITEM = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<path>docs/(?:[\w.-]+/)*[\w.-]+\.md)\)"
-                      r"(?:\s*[:—–-]?\s*(?P<about>.*))?")
 HTML_URL = re.compile(r'\b(src|href)="([^"]+)"')
 # Where markdown names a URL: a link or image, a reference definition, an HTML attribute.
 # Code spans match too, so that the targets inside them are left as written.
@@ -230,6 +228,17 @@ FENCE = re.compile(r"^\s*(```+|~~~+)(.*)$")
 CHANGELOG_HEADING = re.compile(r"(\d+)\.(\d+)\.(\d+) - (\d{4}-\d{2}-\d{2})")
 
 
+def listed_pages(name: str, items: str) -> list[dict]:
+    """The README list links each page on the site, so GitHub sends readers there; its source
+    is the matching file under docs/, and the library's own address is docs/overview.md."""
+    item = re.compile(rf"^- \[(?P<title>[^\]]+)\]\({re.escape(SITE_URL)}/{re.escape(name)}/(?P<page>(?:[\w.-]+/)*)\)"
+                      r"(?:\s*[:—–-]?\s*(?P<about>.*))?")
+    found = (item.match(line) for line in items.splitlines())
+    return [{"title": m["title"], "about": m["about"],
+             "path": f"docs/{m['page'].rstrip('/')}.md" if m["page"] else OVERVIEW}
+            for m in found if m]
+
+
 def site_line(name: str) -> str:
     return f"The full documentation is at {SITE_URL}/{name}/."
 
@@ -260,8 +269,9 @@ def docs_problems(name: str, root: Path, project: dict, readme: str, listed: lis
     if site_line(name) not in entrance.splitlines():
         problems.append(f"{name}: README.md must have the line: {site_line(name)}")
     for target in re.findall(r"\]\(([^)\s]+)", documentation.split("\n## ")[0]):
-        if not target.startswith("docs/"):
-            problems.append(f"{name}: '## Documentation' links {target}; it lists docs/ only (the site adds the changelog)")
+        if not target.startswith(f"{SITE_URL}/{name}/"):
+            problems.append(f"{name}: '## Documentation' links {target}; link each page of the library on the "
+                            f"site, {SITE_URL}/{name}/<page>/ (the changelog is added by the site)")
 
     pages = {"README.md": readme} | {p.relative_to(root).as_posix(): p.read_text() for p in (root / "docs").rglob("*.md")}
     for path, text in pages.items():
@@ -334,13 +344,13 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     if not section:
         fail([f"{name}: README.md has no '## Documentation' section"])
     items = re.sub(r"\n[ \t]+(?=\S)", " ", section.group(1))  # an item wrapped over several lines
-    listed = [m for line in items.splitlines() if (m := DOC_ITEM.match(line))]
+    listed = listed_pages(name, items)
 
     errors = []
     on_disk = {p.relative_to(root).as_posix() for p in (root / "docs").rglob("*.md")}
     for m in listed:
         if m["path"] not in on_disk:
-            errors.append(f"{name}: README lists {m['path']}, which does not exist")
+            errors.append(f"{name}: the README lists a page whose source, {m['path']}, does not exist")
     for missing in sorted(on_disk - {m["path"] for m in listed}):
         errors.append(f"{name}: {missing} is not listed in README '## Documentation'")
     if "docs/index.md" in on_disk:
