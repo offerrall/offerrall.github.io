@@ -26,6 +26,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv run build.py 2>&1 | tee build.log
         shell: bash  # with pipefail, so a failed build fails the step
+        env:
+          GITHUB_TOKEN: ${{ github.token }}  # for the stars, without the anonymous rate limit
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

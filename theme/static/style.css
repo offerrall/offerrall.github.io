@@ -229,7 +229,7 @@ kbd {
 
 .row {
   display: grid;
-  grid-template-columns: 12rem minmax(0, 1fr) 3.5rem auto;
+  grid-template-columns: 12rem minmax(0, 1fr) max-content auto;
   align-items: center;
   min-height: 2.9rem;
   gap: 1rem;
@@ -240,6 +240,9 @@ kbd {
 .row .name { font-weight: 500; }
 .row .desc { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); }
 .row .ver { color: var(--faint); font-size: 12px; text-align: right; }
+.row .ver { display: flex; gap: .9rem; justify-content: flex-end; white-space: nowrap; }
+.row .stars, .row .when { color: var(--muted); }
+.row.sel :is(.stars, .when) { color: inherit; }
 .row .actions { display: flex; gap: .4rem; justify-self: end; }
 .row :is(.copy, .repo) {
   display: grid;
@@ -396,14 +399,14 @@ article td[align="center"] { text-align: center; color: var(--muted); font-size:
 /* Narrow: each row is two lines. Name, version and the buttons on top; the description below. */
 @media (max-width: 52rem) {
   .row {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas: "name ver actions" "desc desc desc";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name actions" "desc desc" "ver ver";
     gap: .15rem .75rem;
     padding-block: .6rem;
     position: relative;
   }
   .row .name { grid-area: name; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .row .ver { grid-area: ver; }
+  .row .ver { grid-area: ver; justify-content: flex-start; margin-top: .15rem; }
   .row .actions { grid-area: actions; }
   .row .desc {
     grid-area: desc;
@@ -453,9 +456,6 @@ article td[align="center"] { text-align: center; color: var(--muted); font-size:
   .row .ver { font-size: 11px; }
   .js .index .links { margin-top: 0; padding-top: .25rem; border-top: 1px dashed var(--line); font-size: 13px; }
   .index .links a { padding: .6rem 0; }
-}
-@media (max-width: 22.5rem) {
-  .row .ver { display: none; }
 }
 
 /* Mobile: docs */

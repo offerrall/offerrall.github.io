@@ -11,13 +11,17 @@ Run: uv run build.py            # the latest releases, cloned into .cache/
      uv run build.py --local    # the working trees next to this repo (../<repo>), to preview
 """
 
+import json
+import os
 import posixpath
 import re
 import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -53,6 +57,8 @@ class Lib:
     version: str
     repo: str  # https://github.com/owner/name
     ref: str  # the tag read, or "main" for a working tree
+    released: str  # when the commit read was made, ISO 8601
+    stars: int
     root: Path
     pages: tuple[Page, ...]  # the README first, then the docs in README order
 
@@ -106,6 +112,15 @@ def declared_version(root: Path, pyproject: dict) -> str | None:
     return None
 
 
+def github_stars(repo: str) -> int:
+    request = urllib.request.Request(f"https://api.github.com/repos/{repo}",
+                                     headers={"Accept": "application/vnd.github+json"})
+    if token := os.environ.get("GITHUB_TOKEN"):
+        request.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request) as response:
+        return json.load(response)["stargazers_count"]
+
+
 def load_lib(repo: str, group: str, local: bool) -> Lib:
     root, ref = checkout(repo, local)
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
@@ -137,8 +152,10 @@ def load_lib(repo: str, group: str, local: bool) -> Lib:
     pages += [Page(m["path"], m["title"].replace("`", ""),
                    f"/{name}/{m['path'].removeprefix('docs/').removesuffix('.md')}/")
               for m in listed]
-    return Lib(name, group, project["description"], version,
-               f"https://github.com/{repo}", ref, root, tuple(pages))
+    released = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%cI"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
+               ref, released, github_stars(repo), root, tuple(pages))
 
 
 # Markdown to HTML
@@ -214,9 +231,13 @@ def main() -> None:
     config = tomllib.loads((ROOT / "site.toml").read_text())
     local = "--local" in sys.argv[1:]
     libs = [load_lib(entry["repo"], entry["group"], local) for entry in config["lib"]]
-    groups: dict[str, list[Lib]] = {}
-    for lib in libs:
-        groups.setdefault(lib.group, []).append(lib)
+    # The home page: the latest releases first, then each group by stars.
+    sections = [{"name": "Recent", "recent": True,
+                 "libs": sorted(libs, key=lambda lib: datetime.fromisoformat(lib.released), reverse=True)[:5]}]
+    for group in dict.fromkeys(lib.group for lib in libs):
+        members = [lib for lib in libs if lib.group == group]
+        sections.append({"name": group, "recent": False,
+                         "libs": sorted(members, key=lambda lib: (-lib.stars, lib.name))})
 
     theme = Environment(loader=FileSystemLoader(THEME), autoescape=True, undefined=StrictUndefined)
     site = config["site"]
@@ -225,7 +246,7 @@ def main() -> None:
         shutil.rmtree(OUT)
     shutil.copytree(THEME / "static", OUT)
     (OUT / ".nojekyll").touch()
-    write(OUT / "index.html", theme.get_template("home.html").render(site=site, groups=groups))
+    write(OUT / "index.html", theme.get_template("home.html").render(site=site, sections=sections, count=len(libs)))
 
     errors: list[str] = []
     for lib in libs:
