@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}dependencies · {{ site.title }}{% endblock %}
+{% block body %}
+<main class="deps-view">
+  <header class="prompt">
+    <span class="path">~/{{ site.title }}/dependencies</span><span class="cursor" aria-hidden="true"></span>
+    <a class="switch" href="/">libraries <kbd>u</kbd></a>
+  </header>
+  {% include "graph.html" %}
+  {# The same links as text, for screens too narrow for the drawing. #}
+  <ul class="deplist">
+    {% for link in links %}
+    <li{% if link.behind %} class="behind"{% endif %}><a href="{{ link.user.pages[0].url }}">{{ link.user.name }}</a> <span>→</span> <a href="{{ link.used.pages[0].url }}">{{ link.used.name }}</a> <code>{{ link.spec }}</code></li>
+    {% endfor %}
+    {% if standalone %}<li class="alone"><span>standalone</span> {% for lib in standalone %}<a href="{{ lib.pages[0].url }}">{{ lib.name }}</a>{{ ", " if not loop.last }}{% endfor %}</li>{% endif %}
+  </ul>
+</main>
+{% endblock %}
+{% block mode %}DEPS{% endblock %}
+{% block message %}{{ links | length }} links between {{ count }} libraries{% endblock %}
+{% block keys %}<kbd>u</kbd> libraries{% endblock %}

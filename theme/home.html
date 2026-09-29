@@ -4,6 +4,7 @@
 <main class="index">
   <header class="prompt">
     <span class="path">~/{{ site.title }}/libraries</span><span class="cursor" aria-hidden="true"></span>
+    <a class="switch" href="/dependencies/">dependencies <kbd>d</kbd></a>
   </header>
 
   <label class="filter">
@@ -16,7 +17,6 @@
     {% for section in sections %}
     <button class="tab" type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ section.name }}<span class="count">{{ "%02d" | format(section.libs | length) }}</span></button>
     {% endfor %}
-    <button class="tab" type="button" role="tab" aria-selected="false">Graph<span class="count">{{ "%02d" | format(graph.edges | length) }}</span></button>
   </nav>
 
   <div class="panels">
@@ -39,10 +39,6 @@
       </ul>
     </section>
     {% endfor %}
-    <section class="group graph" data-name="Graph">
-      <h2><span>Graph</span><i></i></h2>
-      {% include "graph.html" %}
-    </section>
     <p class="empty" hidden>no library matches</p>
   </div>
 
@@ -51,4 +47,4 @@
 {% endblock %}
 {% block mode %}INDEX{% endblock %}
 {% block message %}{{ count }} libraries{% endblock %}
-{% block keys %}<kbd>h</kbd><kbd>l</kbd> category <kbd>j</kbd><kbd>k</kbd> move <kbd>↵</kbd> open <kbd>c</kbd> pip <kbd>g</kbd> clone <kbd>r</kbd> repo <kbd>/</kbd> filter{% endblock %}
+{% block keys %}<kbd>h</kbd><kbd>l</kbd> category <kbd>j</kbd><kbd>k</kbd> move <kbd>↵</kbd> open <kbd>c</kbd> pip <kbd>g</kbd> clone <kbd>r</kbd> repo <kbd>/</kbd> filter <kbd>d</kbd> dependencies{% endblock %}

@@ -68,7 +68,6 @@ if (index) {
     const query = filter.value.trim().toLowerCase();
     groups.forEach((group, i) => {
       const rows = [...group.querySelectorAll(".row")];
-      if (!rows.length) return;  // the graph counts arrows, not rows
       rows.forEach((row) => (row.hidden = !row.dataset.search.includes(query)));
       const matches = rows.filter((row) => !row.hidden).length;
       tabs[i].querySelector(".count").textContent = String(matches).padStart(2, "0");
@@ -97,6 +96,7 @@ if (index) {
     k: () => move(-1),
     ArrowUp: () => move(-1),
     Enter: () => go(current?.querySelector("a").href),
+    d: () => go("/dependencies/"),
     c: () => current && copy(current.querySelector(".pip")),
     g: () => current && copy(current.querySelector(".clone")),
     r: () => go(current?.querySelector(".repo").href),
@@ -106,6 +106,8 @@ if (index) {
       filter.blur();
     },
   };
+} else if (document.querySelector(".deps-view")) {
+  keys = { u: () => go("/") };
 } else {
   keys = {
     "[": () => go(document.querySelector(".pager .prev")?.href),

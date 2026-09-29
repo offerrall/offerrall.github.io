@@ -343,7 +343,12 @@ def main() -> None:
     shutil.copytree(THEME / "static", OUT)
     (OUT / ".nojekyll").touch()
     write(OUT / "index.html", theme.get_template("home.html").render(
-        site=site, sections=sections, count=len(libs), graph=graph_layout(libs, links)))
+        site=site, sections=sections, count=len(libs)))
+    graph = graph_layout(libs, links)
+    linked = {name for link in links for name in (link.user.name, link.used.name)}
+    write(OUT / "dependencies" / "index.html", theme.get_template("dependencies.html").render(
+        site=site, graph=graph, links=links, count=len(libs),
+        standalone=[lib for lib in libs if lib.name not in linked]))
 
     errors: list[str] = []
     for lib in libs:
