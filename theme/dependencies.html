@@ -19,15 +19,15 @@
   </section>
 
   <section class="dep-section">
-    <h2>external <span>packages from PyPI they need to run · {{ external | length }}</span></h2>
+    <h2>external <span>packages from elsewhere they need: from PyPI, or for C and C++ from the system or bundled · {{ external | length }}</span></h2>
     {% if external %}
     <table class="external">
       <thead><tr><th>package</th><th>needed by</th></tr></thead>
       <tbody>
         {% for package in external %}
         <tr>
-          <td><a href="https://pypi.org/project/{{ package.name }}/">{{ package.name }}</a></td>
-          <td>{% for use in package.users %}<span class="use"><a href="{{ use.lib.pages[0].url }}">{{ use.lib.name }}</a> <code>{{ use.spec or "any version" }}</code></span>{% endfor %}</td>
+          <td>{% if package.python %}<a href="https://pypi.org/project/{{ package.name }}/">{{ package.name }}</a>{% else %}{{ package.name }}{% endif %}</td>
+          <td>{% for use in package.users %}<span class="use"><a href="{{ use.lib.pages[0].url }}">{{ use.lib.name }}</a> <code>{{ use.spec or "any version" }}</code>{% if use.note %} {{ use.note }}{% endif %}</span>{% endfor %}</td>
         </tr>
         {% endfor %}
       </tbody>

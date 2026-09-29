@@ -384,6 +384,7 @@ kbd {
 .facts dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .45rem 1.5rem; margin: 0; }
 .facts dt { color: var(--faint); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding-top: .15rem; }
 .facts dt span { color: var(--muted); margin-left: .3rem; }
+.facts li .note { color: var(--faint); font-size: 11px; }
 .facts dd { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
 .facts ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; }
 .facts a { border-bottom: 1px solid var(--line); }
@@ -441,6 +442,15 @@ article li { margin: .3rem 0; }
 article li::marker { color: var(--faint); font-family: var(--mono); }
 article hr { border: 0; border-top: 1px dashed var(--line); margin: 2.75rem 0; }
 article blockquote { padding-left: 1rem; border-left: 2px solid var(--accent); color: var(--muted); }
+
+/* A page's notes for maintainers: folded at its end, as <details><summary>. */
+article details { margin: 2.75rem 0 1.15rem; border: 1px dashed var(--line); padding: .7rem 1.15rem; }
+article details > summary { cursor: pointer; list-style: none; font-family: var(--mono); font-size: .9rem; color: var(--muted); }
+article details > summary::-webkit-details-marker { display: none; }
+article details > summary::before { content: "+ "; color: var(--accent); }
+article details[open] > summary::before { content: "− "; }
+article details[open] > summary { margin-bottom: 1rem; }
+article details > :last-child { margin-bottom: .4rem; }
 
 article code { font-family: var(--mono); font-size: .84em; padding: .1em .35em; background: var(--panel); border: 1px solid var(--line); }
 article pre {

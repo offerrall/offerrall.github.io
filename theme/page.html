@@ -9,7 +9,7 @@
   <aside>
     <p class="path"><a href="/">~/{{ site.title }}/libraries/</a></p>
     <p class="lib"><a href="{{ lib.pages[0].url }}">{{ lib.name }}</a></p>
-    <button class="copy wide pip" type="button" data-copy="pip install {{ lib.name }}" aria-label="Copy pip install {{ lib.name }}"><span class="cmd"><span class="sigil">$</span> pip install {{ lib.name }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
+    <button class="copy wide pip" type="button" data-copy="{{ lib.install }}" aria-label="Copy {{ lib.install }}"><span class="cmd">{% if lib.language == "Python" %}<span class="sigil">$</span> {% endif %}{{ lib.install }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
     <button class="copy wide clone" type="button" data-copy="git clone {{ lib.repo }}" aria-label="Copy git clone {{ lib.repo }}" title="git clone {{ lib.repo }}"><span class="cmd"><span class="sigil">$</span> git clone {{ lib.repo | replace("https://github.com/", "") }}</span><span class="idle">{{ icon("copy") }}</span><span class="done">{{ icon("check") }}</span></button>
     <nav>
       <details class="toc" open>
@@ -24,27 +24,29 @@
     </nav>
     {% if uses %}<p class="deps"><span>uses</span>{% for link in uses %}<a href="{{ link.used.pages[0].url }}"{% if link.behind %} class="behind" title="pins {{ link.spec }}; the latest is {{ link.used.version }}"{% endif %}>{{ link.used.name }}{% if link.spec %} <code>{{ link.spec }}</code>{% endif %}</a>{% endfor %}</p>{% endif %}
     {% if used_by %}<p class="deps"><span>used by</span>{% for link in used_by %}<a href="{{ link.user.pages[0].url }}">{{ link.user.name }}</a>{% endfor %}</p>{% endif %}
-    <p class="meta"><span>v{{ lib.version }}</span><a href="{{ lib.repo }}" class="repo">{{ icon("github") }}GitHub</a><a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a></p>
+    <p class="meta"><span>v{{ lib.version }}</span><a href="{{ lib.repo }}" class="repo">{{ icon("github") }}GitHub</a>{% if lib.language == "Python" %}<a href="https://pypi.org/project/{{ lib.name }}/">PyPI</a>{% endif %}</p>
   </aside>
   <main>
     {% if page.source == "README.md" %}
-    {# Read from the pyproject.toml of the release this page shows, as written there. #}
-    {% macro requirements(items) %}{% for item in items %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.text }}</a>{% else %}{{ item.text }}{% endif %}</li>{% endfor %}{% endmacro %}
-    <section class="facts" aria-label="From pyproject.toml">
-      <p class="source">pyproject.toml · {{ lib.ref }}</p>
+    {# Read from the pyproject.toml or CMakeLists.txt of the release this page shows, as written there. #}
+    {% macro requirements(items) %}{% for item in items %}<li>{% if item.url %}<a href="{{ item.url }}">{{ item.text }}</a>{% else %}{{ item.text }}{% endif %}{% if item.note %} <span class="note">{{ item.note }}</span>{% endif %}</li>{% endfor %}{% endmacro %}
+    <section class="facts" aria-label="From {{ lib.manifest }}">
+      <p class="source">{{ lib.manifest }} · {{ lib.ref }}</p>
       <dl>
         <dt>version</dt><dd>{{ lib.version }}</dd>
-        <dt>python</dt><dd>{{ facts.python or "any" }}</dd>
+        {% if lib.language == "Python" %}<dt>python</dt><dd>{{ facts.python or "any" }}</dd>
+        {% else %}<dt>language</dt><dd>{{ facts.standard }}</dd>
+        <dt>target</dt><dd><code>{{ facts.target }}</code></dd>{% endif %}
         <dt>license</dt><dd>{{ facts.license or "none declared" }}</dd>
         <dt>dependencies <span>{{ facts.dependencies | length }}</span></dt>
         <dd>{% if facts.dependencies %}<ul>{{ requirements(facts.dependencies) }}</ul>{% else %}none{% endif %}</dd>
         {% for extra, items in facts.extras %}
         <dt>extra [{{ extra }}] <span>{{ items | length }}</span></dt><dd><ul>{{ requirements(items) }}</ul></dd>
         {% endfor %}
-        <dt>installs <span>{{ facts.install | length }}</span></dt>
+        {% if lib.language == "Python" %}<dt>installs <span>{{ facts.install | length }}</span></dt>
         <dd>{% if facts.install %}<details class="install"><summary>{{ facts.install_direct }} declared, {{ facts.install | length - facts.install_direct }} pulled in by them <span title="resolved with uv at build time">· python {{ facts.resolved_for[0] }}, linux</span></summary>
           <ul>{% for package in facts.install %}<li><span class="pkg">{{ package.name }}</span> <code>{{ package.version }}</code>{% if not package.direct %} <span class="via">via {{ package.via | join(", ") }}</span>{% endif %}</li>{% endfor %}</ul>
-        </details>{% else %}nothing{% endif %}</dd>
+        </details>{% else %}nothing{% endif %}</dd>{% endif %}
         {% if facts.commands %}<dt>commands</dt><dd><ul>{% for command in facts.commands %}<li>{{ command }}</li>{% endfor %}</ul></dd>{% endif %}
       </dl>
     </section>

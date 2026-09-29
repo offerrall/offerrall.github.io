@@ -25,12 +25,12 @@
       <h2><span>{{ section.name }}</span><i></i><span class="count">{{ "%02d" | format(section.libs | length) }}</span></h2>
       <ul>
         {% for lib in section.libs %}
-        <li class="row" data-search="{{ (lib.name ~ ' ' ~ lib.description ~ ' ' ~ lib.group) | lower }}">
+        <li class="row" data-search="{{ (lib.name ~ ' ' ~ lib.description ~ ' ' ~ lib.group ~ ' ' ~ lib.language) | lower }}">
           <a class="name" href="{{ lib.pages[0].url }}">{{ lib.name }}</a>
           <span class="desc" title="{{ lib.description }}">{{ lib.description }}</span>
           <span class="ver"><span class="stars" title="{{ lib.stars }} stars on GitHub">★ {{ lib.stars }}</span><span>{{ lib.version }}</span></span>
           <span class="actions">
-            <button class="copy pip" type="button" data-copy="pip install {{ lib.name }}" data-tip="copy: pip install {{ lib.name }}" aria-label="Copy pip install {{ lib.name }}"><span class="idle">{{ icon("pip") }}</span><span class="done">{{ icon("check") }}</span></button>
+            <button class="copy pip" type="button" data-copy="{{ lib.install }}" data-tip="copy: {{ lib.install }}" aria-label="Copy {{ lib.install }}"><span class="idle">{{ icon("pip") }}</span><span class="done">{{ icon("check") }}</span></button>
             <button class="copy clone" type="button" data-copy="git clone {{ lib.repo }}" data-tip="copy: git clone {{ lib.repo }}" aria-label="Copy git clone {{ lib.repo }}"><span class="idle">{{ icon("clone") }}</span><span class="done">{{ icon("check") }}</span></button>
             <a class="repo" href="{{ lib.repo }}" data-tip="open: {{ lib.repo }}" aria-label="{{ lib.name }} on GitHub">{{ icon("github") }}</a>
           </span>

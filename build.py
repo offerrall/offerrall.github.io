@@ -5,7 +5,7 @@
 """Build the site into _site/.
 
 The content comes from site.toml and from each library's repository at its highest release
-tag: pyproject.toml, README.md and docs/. The design is theme/: its templates and static/.
+tag: pyproject.toml for Python or CMakeLists.txt for C and C++, README.md and docs/. The design is theme/: its templates and static/.
 
 Run: uv run build.py            # the latest releases, cloned into .cache/
      uv run build.py --local    # the working trees next to this repo (../<repo>), to preview
@@ -70,9 +70,20 @@ class Lib:
     ref: str  # the tag read, or "main" for a working tree
     stars: int
     requires: tuple[tuple[str, str], ...]  # (normalized name, version specifier) of each dependency
-    project: dict  # the [project] table of its pyproject.toml, as read
+    project: dict  # the [project] table of its pyproject.toml, or what its CMakeLists.txt declares
     root: Path
     pages: tuple[Page, ...]  # the README first, then the docs in README order
+    language: str  # "Python", "C" or "C++"
+
+    @property
+    def manifest(self) -> str:
+        """The file its metadata is read from."""
+        return "pyproject.toml" if self.language == "Python" else "CMakeLists.txt"
+
+    @property
+    def install(self) -> str:
+        """How a user gets it: from PyPI, or found by CMake once installed."""
+        return f"pip install {self.name}" if self.language == "Python" else f"find_package({self.name})"
 
 
 def fail(errors: list[str]) -> None:
@@ -164,40 +175,74 @@ def declared_license(project: dict) -> str | None:
     return None
 
 
-def release_problems(repo: str, root: Path, project: dict, version: str, local: bool) -> list[str]:
-    """What every released library must have, besides its docs."""
-    name, problems = project["name"], []
+def license_file(root: Path) -> Path | None:
+    """LICENSE, or the shortest-named of its variants (LICENSE.md, COPYING...)."""
+    found = [f for f in root.iterdir() if f.is_file() and f.name.upper().startswith(("LICENSE", "LICENCE", "COPYING"))]
+    return min(found, key=lambda f: (len(f.name), f.name), default=None)
+
+
+MIT_TEXT = "Permission is hereby granted, free of charge"
+# The licenses a LICENSE file is recognized as, by phrases of their text, for C and C++.
+LICENSE_TEXTS = {
+    "MIT": (MIT_TEXT,),
+    "Apache-2.0": ("Apache License", "Version 2.0"),
+    "BSD-3-Clause": ("Redistribution and use in source and binary forms", "Neither the name"),
+    "BSD-2-Clause": ("Redistribution and use in source and binary forms",),
+    "GPL-3.0": ("GNU GENERAL PUBLIC LICENSE", "Version 3"),
+    "LGPL-3.0": ("GNU LESSER GENERAL PUBLIC LICENSE", "Version 3"),
+    "MPL-2.0": ("Mozilla Public License Version 2.0",),
+    "Zlib": ("This software is provided 'as-is', without any express or implied",),
+}
+
+
+def recognized_license(text: str) -> str | None:
+    return next((spdx for spdx, phrases in LICENSE_TEXTS.items() if all(p in text for p in phrases)), None)
+
+
+def release_problems(repo: str, root: Path, name: str, version: str) -> list[str]:
+    """What every released library must have, in any language, besides its docs."""
+    problems = []
 
     changelog = root / "CHANGELOG.md"
     newest = changelog.exists() and re.search(r"^#+\s*\[?v?(\d+\.\d+\.\d+)", changelog.read_text(), re.M)
     if not newest or newest.group(1) != version:
         problems.append(f"{name}: CHANGELOG.md does not start with an entry for {version}")
 
-    if not local and http_status(f"https://pypi.org/pypi/{name}/{version}/json") != 200:
-        problems.append(f"{name}: PyPI has no {version}; the release did not publish")
-
     title = (root / "README.md").read_text().splitlines()[0]
     if title not in (f"# {name}", f"# {repo.split('/')[1]}"):
         problems.append(f"{name}: the README title is {title!r}; use the package or repository name")
 
-    for label, url in project.get("urls", {}).items():
-        if (status := http_status(url)) != 200:
-            problems.append(f"{name}: [project.urls] {label} = {url} answers {status}")
-
-    license_files = [f for f in root.iterdir()
-                     if f.is_file() and f.name.upper().startswith(("LICENSE", "LICENCE", "COPYING"))]
-    declared = declared_license(project)
-    if not license_files:
+    if not license_file(root):
         problems.append(f"{name}: no LICENSE file")
-    elif not declared:
-        problems.append(f"{name}: pyproject.toml declares no license")
-    elif declared == "MIT" and "Permission is hereby granted, free of charge" not in license_files[0].read_text():
-        problems.append(f"{name}: pyproject.toml declares MIT and {license_files[0].name} is not the MIT text")
 
     for stray in sorted(root.rglob("README*")):
         where = stray.relative_to(root)
         if where != Path("README.md") and not any(part.startswith(".") for part in where.parts):
             problems.append(f"{name}: {where} is documentation outside README.md and docs/")
+    return problems
+
+
+def site_address(url: str, name: str) -> bool:
+    return url.rstrip("/") == f"{SITE_URL}/{name}"
+
+
+def python_problems(root: Path, project: dict, version: str, local: bool) -> list[str]:
+    """What a Python library must have: its release on PyPI, and a pyproject.toml that holds."""
+    name, problems = project["name"], []
+
+    if not local and http_status(f"https://pypi.org/pypi/{name}/{version}/json") != 200:
+        problems.append(f"{name}: PyPI has no {version}; the release did not publish")
+
+    # The library's page on the site is checked by its value: it does not exist before the first build.
+    for label, url in project.get("urls", {}).items():
+        if not site_address(url, normalized(name)) and (status := http_status(url)) != 200:
+            problems.append(f"{name}: [project.urls] {label} = {url} answers {status}")
+
+    declared, file = declared_license(project), license_file(root)
+    if not declared:
+        problems.append(f"{name}: pyproject.toml declares no license")
+    elif file and declared == "MIT" and MIT_TEXT not in file.read_text():
+        problems.append(f"{name}: pyproject.toml declares MIT and {file.name} is not the MIT text")
 
     floor = re.search(r">=\s*3\.(\d+)", project.get("requires-python", ""))
     for classifier in project.get("classifiers", []):
@@ -220,6 +265,132 @@ def name_problems(repo: str, root: Path, project: dict, predates: bool) -> list[
         return [f"{name}: the name must be lowercase letters and digits only, and the same for the "
                 f"repository ({repo_name}) and for the imported package"]
     return []
+
+
+CMAKE_ARGUMENT = re.compile(r'"((?:[^"\\]|\\.)*)"|([^\s"]+)')
+
+
+def cmake_commands(text: str) -> list[tuple[str, list[str]]]:
+    """Each command of a CMakeLists.txt: its name in lowercase and its arguments, with the
+    quotes removed."""
+    text = re.sub(r"#\[(=*)\[.*?\]\1\]", "", text, flags=re.S)  # bracket comments
+    text = re.sub(r'("(?:[^"\\]|\\.)*")|#[^\n]*', lambda m: m[1] or "", text)  # line comments
+    commands, at = [], 0
+    while found := re.compile(r"\b([A-Za-z_]\w*)\s*\(").search(text, at):
+        level, end = 1, found.end()
+        while level and end < len(text):
+            if text[end] == '"':
+                end = re.compile(r'"(?:[^"\\]|\\.)*"').match(text, end).end()
+                continue
+            level += {"(": 1, ")": -1}.get(text[end], 0)
+            end += 1
+        arguments = [m[1] if m[1] is not None else m[2]
+                     for m in CMAKE_ARGUMENT.finditer(text[found.end():end - 1]) if m[0] not in "()"]
+        commands.append((found[1].lower(), arguments))
+        at = end
+    return commands
+
+
+CMAKE_KEYWORDS = ("VERSION", "DESCRIPTION", "HOMEPAGE_URL", "LANGUAGES")
+
+
+def cmake_project(root: Path) -> dict:
+    """What a CMakeLists.txt declares, as the site shows it: the keywords of project(), the
+    version (there or in a VERSION file), the language standard, and its exported targets.
+    Not its dependencies: CMake has no one place that declares them, so the docs say them."""
+    commands = cmake_commands((root / "CMakeLists.txt").read_text())
+    arguments = next((a for n, a in commands if n == "project"), None)
+    if not arguments:
+        fail([f"{root.name}: CMakeLists.txt has no project()"])
+    project = {"name": arguments[0], "languages": []}
+    key = None
+    for word in arguments[1:]:
+        if word in CMAKE_KEYWORDS:
+            key = word
+        elif key == "LANGUAGES":
+            project["languages"].append(word)
+        elif key:
+            project[key.lower()] = word
+    if not re.fullmatch(r"\d+\.\d+\.\d+", project.get("version", "")) and (root / "VERSION").exists():
+        project["version"] = (root / "VERSION").read_text().strip()
+    standards = re.findall(r"\b(c|cxx)_std_(\d+)\b",
+                           " ".join(" ".join(a) for n, a in commands if n == "target_compile_features"))
+    standards += [("cxx" if a[0] == "CMAKE_CXX_STANDARD" else "c", a[1])
+                  for n, a in commands if n == "set" and len(a) > 1 and a[0] in ("CMAKE_CXX_STANDARD", "CMAKE_C_STANDARD")]
+    project["standards"] = {lang: number for lang, number in standards}
+    project["exports"] = [a[a.index("NAMESPACE") + 1] for n, a in commands
+                          if n == "install" and "EXPORT" in a and "NAMESPACE" in a[:-1]]
+    project["libraries"] = [a[0] for n, a in commands if n == "add_library" and a]
+    return project
+
+
+def cmake_language(project: dict) -> str | None:
+    languages = project["languages"]
+    return "C++" if "CXX" in languages else "C" if "C" in languages else None
+
+
+def cmake_problems(repo: str, root: Path, project: dict, local: bool) -> list[str]:
+    """What a C or C++ library must declare in its CMakeLists.txt: project() with its name,
+    version, description, page on the site and language; its target, exported as <name>::<name>;
+    its language standard; and a LICENSE the site recognizes."""
+    name, problems = project["name"], []
+    if not re.fullmatch(r"[a-z0-9]+", name) or repo.split("/")[1] != name:
+        problems.append(f"{name}: the name must be lowercase letters and digits only, and the same for the "
+                        f"repository ({repo.split('/')[1]}) and for project() in CMakeLists.txt")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", project.get("version", "")):
+        problems.append(f"{name}: project() declares no VERSION X.Y.Z, and there is no VERSION file holding it")
+    if not project.get("description"):
+        problems.append(f"{name}: project() declares no DESCRIPTION")
+    if not cmake_language(project):
+        problems.append(f"{name}: project() declares no LANGUAGES C or CXX")
+    elif ("cxx" if cmake_language(project) == "C++" else "c") not in project["standards"]:
+        std = "cxx_std_NN" if cmake_language(project) == "C++" else "c_std_NN"
+        problems.append(f"{name}: no language standard; declare it with target_compile_features({name} PUBLIC {std})")
+    if name not in project["libraries"]:
+        problems.append(f"{name}: no add_library({name} ...)")
+    if f"{name}::" not in project["exports"]:
+        problems.append(f"{name}: no install(EXPORT ... NAMESPACE {name}::), so find_package({name}) "
+                        f"cannot give the target {name}::{name}")
+    if (file := license_file(root)) and not recognized_license(file.read_text()):
+        problems.append(f"{name}: {file.name} is none of the licenses the site recognizes "
+                        f"({', '.join(LICENSE_TEXTS)})")
+    return problems
+
+
+DEPENDENCIES = re.compile(r"^## Dependencies\n(.*?)(?=^## |\Z)", re.M | re.S)
+DEPENDENCY = re.compile(r"- (?P<name>[A-Za-z0-9][A-Za-z0-9._+-]*)(?: `(?P<spec>[^`]+)`)?(?: \((?P<marks>[^)]+)\))?")
+VERSION_CLAUSE = re.compile(r"(==|!=|>=|<=|~=|>|<)\s*\d+(\.\d+)*")
+
+
+def readme_dependencies(name: str, readme: str) -> tuple[list[dict], list[str]]:
+    """What a C or C++ library needs, as its README's '## Dependencies' declares it: one line
+    per dependency, `- <name> `<version>` (<marks>)`, the version in pip's notation and the marks
+    `bundled` (CMake downloads and builds it) and `optional: <CMake option>`; 'None.' when
+    there are none."""
+    section = DEPENDENCIES.search(readme)
+    if not section:
+        return [], [f"{name}: README.md has no '## Dependencies' section after '## Documentation'; a C or C++ "
+                    f"library declares its dependencies there, one per line, or 'None.'"]
+    lines = [line.strip() for line in section[1].splitlines() if line.strip()]
+    if lines == ["None."]:
+        return [], []
+    found, problems = [], []
+    for line in lines:
+        match = DEPENDENCY.fullmatch(line)
+        spec = (match and match["spec"] or "").strip()
+        marks = [mark.strip() for mark in (match and match["marks"] or "").split(",") if mark.strip()]
+        optional = [m.removeprefix("optional:").strip() for m in marks if m.startswith("optional:")]
+        if (not match or (spec and not all(VERSION_CLAUSE.fullmatch(c.strip()) for c in spec.split(",")))
+                or any(m != "bundled" and not m.startswith("optional:") for m in marks)
+                or len(optional) > 1 or "" in optional or len(marks) != len(set(marks))):
+            problems.append(f"{name}: README '## Dependencies' line {line!r} is not "
+                            f"'- <name> `<version>` (bundled, optional: <CMake option>)'")
+            continue
+        if any(d["name"] == normalized(match["name"]) for d in found):
+            problems.append(f"{name}: README '## Dependencies' lists {match['name']} twice")
+        found.append({"name": normalized(match["name"]), "spec": spec, "bundled": "bundled" in marks,
+                      "optional": optional[0] if optional else None})
+    return found, problems
 
 
 SITE_URL = "https://offerrall.github.io"
@@ -253,15 +424,21 @@ def fences_without_language(text: str) -> int:
     return count
 
 
-def docs_problems(name: str, root: Path, project: dict, readme: str, listed: list) -> list[str]:
+def docs_problems(name: str, root: Path, site_link: tuple[str, str], readme: str, listed: list,
+                  sections: tuple[str, ...] = ()) -> list[str]:
     """The shape of the documentation: a short README that opens the site, docs/overview.md
-    first, each page's menu label its own title, every block of code tagged with a language."""
+    first, each page's menu label its own title, every block of code tagged with a language.
+    `site_link` is where the metadata names the site, and the address it names; `sections` are
+    the ones allowed after '## Documentation', in that order."""
     problems = []
     entrance, _, documentation = readme.partition("\n## Documentation\n")
     if not listed or listed[0]["path"] != OVERVIEW:
         problems.append(f"{name}: {OVERVIEW} must exist and come first in '## Documentation'")
-    if any(h.strip() for h in re.findall(r"^## (.*)$", entrance + documentation, re.M)):
-        problems.append(f"{name}: README.md may have no section besides '## Documentation'")
+    headings = [h.strip() for h in re.findall(r"^## (.*)$", entrance + documentation, re.M)]
+    if headings != list(sections):
+        allowed = " and ".join(f"'## {s}'" for s in ("Documentation", *sections))
+        problems.append(f"{name}: README.md may have no section besides {allowed}"
+                        + (", in that order" if sections else ""))
     if len(entrance.splitlines()) > 40:
         problems.append(f"{name}: README.md has {len(entrance.splitlines())} lines before '## Documentation', at most 40")
     if sum(1 for line in entrance.splitlines() if FENCE.match(line)) > 2:
@@ -276,7 +453,7 @@ def docs_problems(name: str, root: Path, project: dict, readme: str, listed: lis
     pages = {"README.md": readme} | {p.relative_to(root).as_posix(): p.read_text() for p in (root / "docs").rglob("*.md")}
     for path, text in pages.items():
         if "img.shields.io" in text:
-            problems.append(f"{name}: {path} has a badge; the site shows version, Python and license itself")
+            problems.append(f"{name}: {path} has a badge; the site shows version, language and license itself")
         if (count := fences_without_language(text)):
             problems.append(f"{name}: {path} has {count} block(s) of code without a language")
         if path != "README.md" and re.search(r"\]\([^)\s]*README\.md", text):
@@ -290,9 +467,8 @@ def docs_problems(name: str, root: Path, project: dict, readme: str, listed: lis
         elif first[1].strip() != m["title"]:
             problems.append(f"{name}: '{m['title']}' in the README list is titled '{first[1].strip()}' in {m['path']}")
 
-    documentation_url = project.get("urls", {}).get("Documentation", "").rstrip("/")
-    if documentation_url != f"{SITE_URL}/{name}":
-        problems.append(f"{name}: [project.urls] Documentation must be {SITE_URL}/{name}/")
+    if not site_address(site_link[1], name):
+        problems.append(f"{name}: {site_link[0]} must be {SITE_URL}/{name}/")
 
     changelog = (root / "CHANGELOG.md").read_text() if (root / "CHANGELOG.md").exists() else ""
     previous = None
@@ -328,14 +504,37 @@ def sibling_problems(libs: list["Lib"]) -> list[str]:
 
 def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     root, ref = checkout(repo, local)
-    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
-    project = pyproject["project"]
-    # Shown everywhere in PyPI's canonical form: lowercase, separators as one hyphen
-    # (pygrbl_streamer is pygrbl-streamer), the spelling PyPI itself displays.
-    name = normalized(project["name"])
-    version = declared_version(root, pyproject)
-    if not version:
-        fail([f"{repo}: pyproject.toml declares no version this build can read"])
+    errors = []
+    if (root / "pyproject.toml").exists():
+        language = "Python"
+        pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+        project = pyproject["project"]
+        # Shown everywhere in PyPI's canonical form: lowercase, separators as one hyphen
+        # (pygrbl_streamer is pygrbl-streamer), the spelling PyPI itself displays.
+        name = normalized(project["name"])
+        version = declared_version(root, pyproject)
+        if not version:
+            fail([f"{repo}: pyproject.toml declares no version this build can read"])
+        errors += python_problems(root, project, version, local)
+        errors += name_problems(repo, root, project, predates)
+        if DEPENDENCIES.search((root / "README.md").read_text()):
+            errors.append(f"{name}: a Python library declares its dependencies in pyproject.toml; "
+                          f"remove '## Dependencies' from README.md")
+        documentation = ("[project.urls] Documentation", project.get("urls", {}).get("Documentation", ""))
+    elif (root / "CMakeLists.txt").exists():
+        project = cmake_project(root)
+        name, version = project["name"], project.get("version", "")
+        language = cmake_language(project) or "C++"
+        errors += cmake_problems(repo, root, project, local)
+        if predates:
+            errors.append(f"{name}: name_predates_convention is only for PyPI names; remove it from site.toml")
+        documentation = ("project() HOMEPAGE_URL", project.get("homepage_url", ""))
+        project["dependencies"], found = readme_dependencies(name, (root / "README.md").read_text())
+        errors += found
+        if not version:
+            fail(errors)
+    else:
+        fail([f"{repo}: no pyproject.toml (Python) or CMakeLists.txt (C, C++)"])
     if not local and ref != f"v{version}":
         fail([f"{repo}: tag {ref} holds version {version}"])
 
@@ -346,7 +545,6 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
     items = re.sub(r"\n[ \t]+(?=\S)", " ", section.group(1))  # an item wrapped over several lines
     listed = listed_pages(name, items)
 
-    errors = []
     on_disk = {p.relative_to(root).as_posix() for p in (root / "docs").rglob("*.md")}
     for m in listed:
         if m["path"] not in on_disk:
@@ -355,9 +553,9 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
         errors.append(f"{name}: {missing} is not listed in README '## Documentation'")
     if "docs/index.md" in on_disk:
         errors.append(f"{name}: docs/index.md would have the markdown URL of the README, rename it")
-    errors += release_problems(repo, root, project, version, local)
-    errors += name_problems(repo, root, project, predates)
-    errors += docs_problems(name, root, project, readme, listed)
+    errors += release_problems(repo, root, name, version)
+    errors += docs_problems(name, root, documentation, readme, listed,
+                            () if language == "Python" else ("Dependencies",))
     fail(errors)
 
     pages = [Page("README.md", name, f"/{name}/", "")]
@@ -368,8 +566,10 @@ def load_lib(repo: str, group: str, local: bool, predates: bool = False) -> Lib:
               for m in listed if m["path"] != OVERVIEW]
     if (root / "CHANGELOG.md").exists():
         pages.append(Page("CHANGELOG.md", "Changelog", f"/{name}/changelog/", "the changes of every release"))
+    requires = requirements(project) if language == "Python" else tuple(
+        (d["name"], d["spec"]) for d in project["dependencies"])
     return Lib(name, group, project["description"], version, f"https://github.com/{repo}",
-               ref, github_stars(repo), requirements(project), project, root, tuple(pages))
+               ref, github_stars(repo), requires, project, root, tuple(pages), language)
 
 
 # Markdown to HTML
@@ -483,20 +683,35 @@ def dependency_links(libs: list[Lib]) -> list[Link]:
 
 
 def facts(lib: Lib, libs: list[Lib]) -> dict:
-    """What the Overview shows before the README: its pyproject.toml, as written."""
+    """What the Overview shows before the README: its pyproject.toml or CMakeLists.txt, as written."""
+    project = lib.project
     pages = {normalized(other.name): other.pages[0].url for other in libs}
+    if lib.language != "Python":
+        standard = project["standards"].get("cxx" if lib.language == "C++" else "c")
+        file = license_file(lib.root)
+        return {
+            "install": [], "install_direct": 0, "resolved_for": RESOLVED_FOR, "python": None,
+            "standard": f"{lib.language}{standard}" if standard else lib.language,
+            "target": f"{lib.name}::{lib.name}",
+            "license": recognized_license(file.read_text()) if file else None,
+            "dependencies": [{"text": f"{d['name']} {d['spec']}".strip(), "url": pages.get(d["name"]),
+                              "note": ", ".join(filter(None, ["bundled" if d["bundled"] else "",
+                                                              d["optional"] and f"optional: {d['optional']}"]))}
+                             for d in project["dependencies"]],
+            "extras": [], "commands": [],
+        }
 
     def requirement(text: str) -> dict:
         found = REQUIREMENT.match(text)
-        return {"text": text, "url": pages.get(normalized(found[1])) if found else None}
+        return {"text": text, "url": pages.get(normalized(found[1])) if found else None, "note": ""}
 
-    project = lib.project
     install = resolved_install(lib)
     return {
         "install": install,
         "install_direct": sum(package["direct"] for package in install),
         "resolved_for": RESOLVED_FOR,
         "python": project.get("requires-python"),
+        "standard": None, "target": None,
         "license": declared_license(project),
         "dependencies": [requirement(text) for text in project.get("dependencies", [])],
         "extras": [(extra, [requirement(text) for text in texts])
@@ -509,14 +724,20 @@ def external_dependencies(libs: list[Lib]) -> list[dict]:
     """The packages from elsewhere that the libraries need, each with who needs it and how,
     the most shared first."""
     ours = {normalized(lib.name) for lib in libs}
-    packages: dict[str, dict] = {}
+    packages: dict[tuple[bool, str], dict] = {}
     for lib in libs:
-        for text in lib.project.get("dependencies", []):
-            found = REQUIREMENT.match(text)
-            if not found or normalized(found[1]) in ours:
+        if lib.language == "Python":
+            declared = [(found[1], found[2].strip(), "") for found in map(REQUIREMENT.match, lib.project.get("dependencies", []))
+                        if found]
+        else:
+            declared = [(d["name"], d["spec"], "bundled" if d["bundled"] else "") for d in lib.project["dependencies"]]
+        for name, spec, note in declared:
+            if normalized(name) in ours:
                 continue
-            package = packages.setdefault(normalized(found[1]), {"name": found[1], "users": []})
-            package["users"].append({"lib": lib, "spec": found[2].strip()})
+            # A C library and a Python package may share a name; they are not the same package.
+            key = (lib.language == "Python", normalized(name))
+            package = packages.setdefault(key, {"name": name, "python": key[0], "users": []})
+            package["users"].append({"lib": lib, "spec": spec, "note": note})
     return sorted(packages.values(), key=lambda p: (-len(p["users"]), p["name"].lower()))
 
 
@@ -651,7 +872,7 @@ def main() -> None:
     linked = {name for link in links for name in (link.user.name, link.used.name)}
     write(OUT / "dependencies" / "index.html", theme.get_template("dependencies.html").render(
         site=site, graph=graph, links=links, count=len(libs), external=external_dependencies(libs),
-        installs=sorted(((lib, lib_facts[lib.name]) for lib in libs), key=lambda i: (-len(i[1]["install"]), i[0].name)),
+        installs=sorted(((lib, lib_facts[lib.name]) for lib in libs if lib.language == "Python"), key=lambda i: (-len(i[1]["install"]), i[0].name)),
         distinct=len({package["name"] for f in lib_facts.values() for package in f["install"]}),
         resolved_for=RESOLVED_FOR,
         standalone=[lib for lib in libs if lib.name not in linked]))
